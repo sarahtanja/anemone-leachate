@@ -32,7 +32,21 @@ knitr::opts_chunk$set(
 )
 ```
 
+I searched the NDBC map for the stations closest to my collection site at Owens Beach, Point Defiance Park in Commencement Bay, Tacoma.
 
+I found the following stations:
+
+Station TCMW1 9446482 Tacoma, Met, WA - air temp
+
+![TCMW1: air temp](images/NDBC-TCMW1.jpg)
+
+Historical data: <https://www.ndbc.noaa.gov/station_history.php?station=tcmw1>
+
+[Station TCNW1](https://tidesandcurrents.noaa.gov/stationhome.html?id=9446484) 9446484 Tacoma, WA - water temp - tide height
+
+![TCNW1 - water temp, tide height](images/NDCB-TCNW1.jpg)
+
+Historical Data: <https://www.ndbc.noaa.gov/station_history.php?station=tcnw1>
 
 ## Install Packages
 
@@ -52,8 +66,10 @@ library(tidyverse)
 mkdir -p data
 ```
 
+## Use `curl` to get NDBC data 
 
-## Use `curl` to get NDBC data
+Pull data from the year 2021 in which the June record-breaking heat wave occurred...
+
 ```{r, engine='bash'}
 # navigate to data directory
 cd data
@@ -66,7 +82,3 @@ curl -O https://www.ndbc.noaa.gov/data/historical/stdmet/tcnw1h2021.txt.gz
 # this station has air temp in F
 
 ```
-
-
-
-
