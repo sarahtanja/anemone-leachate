@@ -1,0 +1,72 @@
+---
+title: "Environmental Landscape of an Intertidal Heat Wave"
+subtitle: "Using NOAA National Data Buoy Center (NDBC) to map air and water temperatures in Commencement Bay, Tacoma, WA, during the June 2021 Puget Sound heat wave"
+author: "Sarah Tanja"
+date: "`r format(Sys.time(), '%d %B, %Y')`"  
+format:
+  html:
+    df-print: paged
+    toc: true
+    toc-location: right
+    smooth-scroll: true
+    link-external-icon: true
+    link-external-newwindow: true
+    code-fold: false
+    code-tools: true
+    code-copy: true
+    highlight-style: breeze
+    code-overflow: wrap
+    theme: minty
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(
+  echo = TRUE,         # Display code chunks
+  eval = FALSE,         # Evaluate code chunks
+  warning = FALSE,     # Hide warnings
+  message = FALSE,     # Hide messages
+  fig.width = 6,       # Set plot width in inches
+  fig.height = 4,      # Set plot height in inches
+  fig.align = "center" # Align plots to the center
+)
+```
+
+
+
+## Install Packages
+
+```{r install-packages, eval=TRUE, cache=TRUE}
+
+if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages('tidyverse')
+```
+
+## Load packages
+
+```{r load-packages, cache=TRUE}
+library(tidyverse)
+```
+
+```{r, engine='bash'}
+# make a data directory, if there isn't one already (-p option will make one only if it isn't already there, otherwise it will do nothing)
+mkdir -p data
+```
+
+
+## Use `curl` to get NDBC data
+```{r, engine='bash'}
+# navigate to data directory
+cd data
+
+# download 2021 data from station TCNW1 NDBC into the data directory
+# this station has water temp in F
+curl -O https://www.ndbc.noaa.gov/data/historical/stdmet/tcnw1h2021.txt.gz 
+
+# download 2021 data from station TCMW1 NDBC into the data directory
+# this station has air temp in F
+
+```
+
+
+
+
