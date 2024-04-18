@@ -66,7 +66,7 @@ library(tidyverse)
 mkdir -p data
 ```
 
-## Use `curl` to get NDBC data 
+## Use `curl` to get NDBC data
 
 Pull data from the year 2021 in which the June record-breaking heat wave occurred...
 
