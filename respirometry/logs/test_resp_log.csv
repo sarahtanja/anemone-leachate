@@ -1,0 +1,3 @@
+date,time,probe,id,treatment,filename
+23Apr2024,11:43,9,blank,Blank,23APR2024nemtest.csv
+23Apr2024,11:43,10,1-control,Control,23APR2024nemtest.csv

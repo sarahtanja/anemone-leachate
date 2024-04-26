@@ -1,0 +1,265 @@
+---
+title: "Find stable oxygen consumption rate from respirometry runs"
+subtitle: ""
+author: "Craig Norrie"
+date: "`r format(Sys.time(), '%d %B, %Y')`"  
+format:
+  html:
+    df-print: paged
+    toc: true
+    toc-location: right
+    smooth-scroll: true
+    link-external-icon: true
+    link-external-newwindow: true
+    code-fold: false
+    code-tools: true
+    code-copy: true
+    highlight-style: breeze
+    code-overflow: wrap
+    theme: minty
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+Author Craig Norrie - cnorrie\@uw.edu Last modified: November 2022 This
+code will read in data from respirometry files that were produced using
+PreSens respirometers one file containing each probe for each run should
+exist and a master log file with the info for each animal should exist
+Templates for the log file is in the repo names
+"Resplog_Template_CSV.csv" the respirometry data files should be named
+in order. i.e. the first file should correspond to run #1
+
+```{r}
+# Install packages
+if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages('tidyverse')
+if ("gridExtra" %in% rownames(installed.packages()) == 'FALSE') install.packages('gridExtra')
+if ("lubridate" %in% rownames(installed.packages()) == 'FALSE') install.packages('lubridate')
+if ("respR" %in% rownames(installed.packages()) == 'FALSE') install.packages('respR')
+
+# Load packages
+library(tidyverse)
+library(gridExtra)
+library(lubridate)
+library(respR)
+```
+
+# Pull in data
+
+Read in all the respirometry data from `.csv` files
+
+```{r}
+# Read in all the data 
+
+# Directory containing the CSV files
+data_path <- "data"
+
+# Get a list of all files in the folder
+resp_files <- list.files(data_path, full.names = TRUE)
+
+# Read in all CSV files, adding a run column and filename column
+resp_data <- map_df(resp_files, ~ read_csv(.x, skip = 1) %>%
+                                  slice(-c(n()-1, n())) %>% 
+                                  mutate(filename = basename(.x)) %>%
+                                  mutate(run = (.x)) 
+                    )
+
+resp_data <- map2_df(resp_files, seq_along(resp_files), ~ read_csv(.x, skip = 1) %>%
+                                     slice(-c(n() - 1, n())) %>%
+                                     mutate(filename = basename(.x),
+                                            run = .y))
+```
+
+The `filename` will be what is used to merge the respirometry data with the respirometry log
+```{r}
+# Check that the `filename` & `run` columns were added
+glimpse(resp_data)
+```
+
+```{r}
+# Make each run a factor (not numeric) 
+resp_data$run <- as.factor(resp_data$run)
+
+# Check that `run` is the right data type (factor)
+class(resp_data$run)
+
+# Check that each run is represented
+levels(resp_data$run)
+```
+
+
+
+# Calculate oxygen uptake rates using the [RespR package](https://januarharianto.github.io/respR/index.html)
+
+## Put the data in the right format
+
+
+In order to do this we need each probe or channel to have its own oxygen value column, like this example data from the respR package (in which a,b,c,d, etc. are O2 measurements from different chambers):
+```{r}
+head(urchins.rd)
+```
+Note that the `time.min` column is numeric! 
+In our dataframe, `delta_t` is the change in time 
+Make delta_t (change in time) column numeric
+```{r}
+# Make change in time numeric (not a character string)
+resp_data$delta_t <- as.numeric(resp_data$delta_t)
+
+# Check that delta_t is the right data type (numeric)
+class(resp_data$delta_t)
+```
+
+
+Now we need each probe from each run to have its own oxygen value column. 
+So this is going to need some filtering and restitching of our data format from the PreSens software
+
+Let's just pull out the things we want to keep track of: Date, Time, delta_T, Oxygen value, Channel, Sensor, filename & run
+
+
+This is how Craig did it:
+```{r}
+# Gets a list of all the runs to filter by
+runlist <- levels(resp_data$run)
+
+# Use a for loop to select the columns from each run and create a new dataframe for each
+for(i in 1:length(runlist)){
+  df <- resp_data %>% select(delta_t,Channel,Value, run, filename) %>% filter(run == runlist[i])
+  df <- df %>% select(delta_t,Channel,Value) %>% pivot_wider(names_from = Channel, values_from = Value)
+  df$delta_t <- as.numeric(df$delta_t)
+  assign(paste('run_',i,sep=''),df)
+  }
+```
+
+Now the data is in the correct format! 
+
+```{r}
+
+```
+
+
+## Inspect each run
+
+```{r}
+#create an empty df to store data from all runs
+allratesdat <- data.frame(matrix(ncol=3,nrow=0, dimnames=list(NULL, c("probe", "rate", "run"))))
+```
+
+
+```{r}
+run_num <- run_1 #Put the number of the run that you are caclulcating rate for here
+df.name <- "1" ##Update this each time you update the above
+inspect(run_num, time = 1, oxygen = 2:3)#*Assumes 8 probe respirometer****
+```
+
+
+```{r}
+## In the respR package, use pipes:
+resp_data %>%        # using the anemones dataset,
+  select(7, 9) %>%   # select columns for time & oxygen
+  inspect()     %>%   # inspect the data, then
+  auto_rate()   %>%   # automatically determine most linear segment
+  print()       %>%   # a quick preview
+  convert_rate("mg/L", "min", "mg/h/kg", 0.6, 0.4) # convert to units
+```
+
+
+```{r}
+
+allratesdat <- data.frame(matrix(ncol=6,nrow=0,dimnames=list(NULL,c("probe", "calc_rate", "calcR2", "auto_rate", "autoR2", "run"))))
+```
+
+
+
+inspect each run to determine where we are going to calculate the rate (i.e. remove any weird spots of data) 
+
+```{r}
+#*#Set the start and end times over the period of o2 consumption based on
+# inspection of data 
+start_time <- 100 
+end_time <- 150
+```
+
+
+YOU ShOULD NOT HAVE TO CHANGE ANY OF THE BELOW CODE FOR EACH RUN
+
+```{r}
+#Calculate oxygen uptake levels for each probe over the specified period
+#What is the rate over a specific 25 minute period?” from = 4, to = 29, by = "time"
+#Create an empty data frame to save the results of the loop
+respdf <- data.frame(matrix(ncol=6,nrow=0, dimnames=list(NULL, c("probe", "calc_rate", "calcR2", "auto_rate", "autoR2", "run"))))#create an empty df to store rates.
+
+#i should be in the first column of the df and tempoxydf$summary$rate should be in the second
+for(i in 2:ncol(run_num)){
+  tempoxy <- inspect(run_num, time = 1, oxygen = i)
+  calcrate <- calc_rate(tempoxy, from = start_time, to = end_time)#loop this for each probe in each run and save the data
+  autorate <- auto_rate(tempoxy)
+  tempoxydf <- data.frame(matrix(ncol=6,nrow=1, dimnames=list(NULL, c("probe", "calc_rate","calcR2", "auto_rate", "autoR2", "run"))))
+  tempoxydf$probe <- colnames(run_num)[i]
+  tempoxydf$calc_rate <- calcrate$summary$calc_rate
+  tempoxydf$run <- df.name
+  tempoxydf$auto_rate <- autorate$summary$auto_rate
+  respdf <- rbind(respdf, tempoxydf)
+}
+#rename the df to the name of the run that you just used
+assign(paste('rates_',df.name,sep=''),respdf)#names the df with the run name
+
+##Add all this data to one big data frame 
+
+allratesdat <- rbind(allratesdat, respdf)
+
+```
+
+```{r}
+# Match the respiometery log with the rates -------------------------------
+#Read in your respirometry log - make sure that it is in teh appropiate foler
+resplog <- read.csv("logs/test_resp_log.csv")
+#ensure data classes are the same - not really necessary
+resplog$probe <- as.factor(resplog$probe)
+resplog$run <- as.factor(resplog$run)
+allratesdat$run <- as.factor(allratesdat$run)
+allratesdat$probe <- as.factor(allratesdat$probe)
+#Merge the data to one df
+animalratedat <- merge(allratesdat, resplog, by = c("probe","run"))
+animalratedat$Ploidy <- as.factor(animalratedat$Ploidy)
+animalratedat$Treatment <- as.factor(animalratedat$Treatment)
+
+```
+
+
+#Calculate oxygen uptake levels for each probe over the specified period
+#What is the rate over a specific 25 minute period?" from = 4, to = 29,
+by = "time" #Create an empty data frame to save the results of the loop
+respdf \<- data.frame(matrix(ncol=2,nrow=0, dimnames=list(NULL,
+c("probe", "rate"))))#create an empty df to store rates. #i should be in
+the first column of the df and tempoxydf$summary$rate should be in the
+second for(i in 2:ncol(run_num)){ tempoxy \<- inspect(run_num, time = 1,
+oxygen = i) oxrate \<- calc_rate(tempoxy, from = start_time, to =
+end_time)#loop this for each probe in each run and save the data
+tempoxydf \<- data.frame(matrix(ncol=3,nrow=1, dimnames=list(NULL,
+c("probe", "rate","run"))))
+tempoxydf$probe <- colnames(run_num)[i]  tempoxydf$rate \<-
+oxrate$summary$rate tempoxydf\$run \<- df.name respdf \<- rbind(respdf,
+tempoxydf) } #rename the df to the name of teh run that you just used
+assign(paste('rates\_',df.name,sep=''),respdf)#names the df with the run
+name
+
+##Add all this data to one big data frame
+
+```{r}
+allratesdat <- rbind(allratesdat, respdf)
+```
+# Match the respiometery log with the rates -------------------------------
+
+#Read in your respirometry log - make sure that it is in teh appropiate
+foler 
+
+```{r}
+resplog <- read.csv("Resplog_CSV.csv") 
+resplog$probe <- as.factor(resplog$probe)
+resplog$run <- as.factor(resplog$run)
+allratesdat$run <- as.factor(allratesdat$run)
+allratesdat$probe <- as.factor(allratesdat$probe) #Merge the data to one
+df animalratedat <- merge(allratesdat, resplog, by = c("probe","run"))
+animalratedat$Ploidy <- as.factor(animalratedat$Ploidy)
+animalratedat$Treatment <- as.factor(animalratedat$Treatment)
+```
