@@ -46,6 +46,46 @@ library(lubridate)
 library(respR)
 ```
 
+If respR is not available for your version of R...
+
+### Install RTools
+
+\*if it hasn't been already installed (otherwise, skip this step)
+
+1.  Open https://cran.r-project.org/
+2.  Select the necessary operating system for downloading the installer
+    (e.g., Download R for Windows)
+3.  Select `RTools`
+4.  Select the latest version of RTools
+5.  Wait for the completion of downloading
+6.  Run the installer with all the options by default (here we may need
+    to click Run anyway on the first pop-up window)
+7.  For the new versions of R (v4.0.0), add
+    PATH='${RTOOLS40_HOME}\usr\bin;${PATH}' to the .Renviron file:
+
+```{r}
+# For R v4.0.0 and newer, add RTools to PATH
+if (grepl("^4\\.0\\.", R.version$version.string)) {
+    # Get RTools40 home directory
+    rtools_home <- Sys.getenv("RTOOLS40_HOME")
+    
+    # Add RTools40\usr\bin to PATH in .Renviron
+    writeLines(paste0("PATH='", rtools_home, "\\usr\\bin;", Sys.getenv("PATH"), "'"), con = "~/.Renviron")
+}
+```
+
+### Use devtools to install `respR`
+
+This install is not from CRAN, rather from the [`respR` github
+repository](https://github.com/januarharianto/respR)
+
+```{r}
+if ("devtools" %in% rownames(installed.packages()) == 'FALSE') install.packages('devtools')
+
+# If package `respR` is not available for your r version download the package from github
+devtools::install_github("januarharianto/respR")
+```
+
 # Pull in data
 
 Read in all the respirometry data from `.csv` files
@@ -134,46 +174,11 @@ for(i in 1:length(run_list)){
 
 We now have a dataframe for each respirometry run.
 
-# Inspect the data using `respR`
-
-```{r}
-inspect()
-```
-
 Loop through and check that there aren't duplicated timestamps (delta_t)
 values in your run dataframes
 
 The samples should have been taken every 10 seconds, but for some reason
 they don't time up with each other (and they should...)
-
-# Subset for respiration
-
-Subset for respiration data by filtering time delta_t \<= 30, since the
-first 30 minutes were in the dark
-
-```{r}
-for (i in 1:11){
-  
-  # iterate (i) through each run dataframe
-  run_num <- paste0("run_", i)
-  
-  # Access the data frame using get()
-  df <-  get(run_num)
-  
-  
-
-```
-
-# Subset for photosynthesis
-
-But.... now the data is in the correct format!
-
-Let's take a quick peek at each whole run:
-
-```{r}
-ggplot(resp_data, aes(x= delta_t, y= Value, color = run)) +
-  geom_point()
-```
 
 # Inspect each run
 
@@ -225,25 +230,26 @@ inspect(channel, time = 1, oxygen = 2)
 }
 ```
 
-```{}
-```
-
 # Calculate oxygen uptake rates using the [RespR package](https://januarharianto.github.io/respR/index.html)
 
 ```{r}
 ## In the respR package, use pipes:
-for (i in 1:11){
-run_num <- paste0("run_", i)  
-get(run_num) %>%        # using the anemones dataset,
-  select(time = 3, oxygen = 5:10) %>%   # select columns for time & oxygen
+run_10 %>%        # using the anemones dataset,
+  select(time = 1, oxygen = 2) %>%   # select columns for time & oxygen
   inspect()     %>%   # inspect the data, then
   auto_rate()   %>%   # automatically determine most linear segment
   print()       %>%   # a quick preview
   convert_rate("mg/L", "min", "mg/h/kg", 0.6, 0.4) # convert to units
-}
 ```
 
 # Split the run into respiration and photosynthesis
+
+## Subset for respiration
+
+Subset for respiration data by filtering time delta_t \<= 30, since the
+first 30 minutes were in the dark
+
+## Subset for photosynthesis
 
 ```{r}
 
