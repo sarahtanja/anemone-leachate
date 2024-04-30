@@ -30,6 +30,8 @@ Templates for the log file is in the repo names
 "Resplog_Template_CSV.csv" the respirometry data files should be named
 in order. i.e. the first file should correspond to run #1
 
+# Install and load packages
+
 ```{r}
 # Install packages
 if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages('tidyverse')
@@ -49,136 +51,217 @@ library(respR)
 Read in all the respirometry data from `.csv` files
 
 ```{r}
-# Read in all the data 
 
 # Directory containing the CSV files
 data_path <- "data"
 
-# Get a list of all files in the folder
-resp_files <- list.files(data_path, full.names = TRUE)
+# Get a list of all file's paths in the folder
+all_files <- list.files(data_path, full.names = TRUE)
 
-# Read in all CSV files, adding a run column and filename column
-resp_data <- map_df(resp_files, ~ read_csv(.x, skip = 1) %>%
-                                  slice(-c(n()-1, n())) %>% 
-                                  mutate(filename = basename(.x)) %>%
-                                  mutate(run = (.x)) 
-                    )
-
-resp_data <- map2_df(resp_files, seq_along(resp_files), ~ read_csv(.x, skip = 1) %>%
+# Read in all CSV files, adding a run column 
+all_data <- map2_df(all_files, seq_along(all_files), ~ read_csv(.x, skip = 1) %>%
                                      slice(-c(n() - 1, n())) %>%
                                      mutate(filename = basename(.x),
                                             run = .y))
 ```
 
-The `filename` will be what is used to merge the respirometry data with the respirometry log
-```{r}
-# Check that the `filename` & `run` columns were added
-glimpse(resp_data)
-```
+The `run` column will be what is used to merge the respirometry data
+with the respirometry log.
 
 ```{r}
 # Make each run a factor (not numeric) 
-resp_data$run <- as.factor(resp_data$run)
+all_data$run <- as.factor(all_data$run)
 
 # Check that `run` is the right data type (factor)
-class(resp_data$run)
+class(all_data$run)
 
 # Check that each run is represented
-levels(resp_data$run)
+levels(all_data$run)
 ```
 
+# Put the data in the right format
 
+In order to do this we need each probe or channel to have its own oxygen
+value column, like this example data from the respR package (in which
+a,b,c,d, etc. are O2 measurements from different chambers):
 
-# Calculate oxygen uptake rates using the [RespR package](https://januarharianto.github.io/respR/index.html)
-
-## Put the data in the right format
-
-
-In order to do this we need each probe or channel to have its own oxygen value column, like this example data from the respR package (in which a,b,c,d, etc. are O2 measurements from different chambers):
 ```{r}
 head(urchins.rd)
 ```
-Note that the `time.min` column is numeric! 
-In our dataframe, `delta_t` is the change in time 
-Make delta_t (change in time) column numeric
+
+## Make time numeric
+
+Note that the `time.min` column above is numeric! In our dataframe,
+`delta_t` is the change in time. Make delta_t (change in time) column
+numeric.
+
 ```{r}
 # Make change in time numeric (not a character string)
-resp_data$delta_t <- as.numeric(resp_data$delta_t)
+all_data$delta_t <- as.numeric(all_data$delta_t)
 
 # Check that delta_t is the right data type (numeric)
-class(resp_data$delta_t)
+class(all_data$delta_t)
 ```
 
+Now we need each probe from each run to have its own oxygen value
+column. So this is going to need some filtering and restitching of our
+data format from the PreSens software
 
-Now we need each probe from each run to have its own oxygen value column. 
-So this is going to need some filtering and restitching of our data format from the PreSens software
-
-Let's just pull out the things we want to keep track of: Date, Time, delta_T, Oxygen value, Channel, Sensor, filename & run
-
+Let's just pull out the things we want to keep track of: delta_T, Value,
+Channel
 
 This is how Craig did it:
+
 ```{r}
 # Gets a list of all the runs to filter by
-runlist <- levels(resp_data$run)
+run_list <- levels(all_data$run)
 
 # Use a for loop to select the columns from each run and create a new dataframe for each
-for(i in 1:length(runlist)){
-  df <- resp_data %>% select(delta_t,Channel,Value, run, filename) %>% filter(run == runlist[i])
-  df <- df %>% select(delta_t,Channel,Value) %>% pivot_wider(names_from = Channel, values_from = Value)
+for(i in 1:length(run_list)){
+  
+  df <- all_data %>% select(delta_t,Channel,Value, run) %>% 
+    filter(run == run_list[i])
+  
+  df <- df %>% select(delta_t,Channel,Value) %>% 
+    pivot_wider(names_from = Channel, values_from = Value)
+  
   df$delta_t <- as.numeric(df$delta_t)
+  
   assign(paste('run_',i,sep=''),df)
+  
   }
 ```
 
-Now the data is in the correct format! 
+We now have a dataframe for each respirometry run.
+
+# Inspect the data using `respR`
 
 ```{r}
+inspect()
+```
+
+Loop through and check that there aren't duplicated timestamps (delta_t)
+values in your run dataframes
+
+The samples should have been taken every 10 seconds, but for some reason
+they don't time up with each other (and they should...)
+
+# Subset for respiration
+
+Subset for respiration data by filtering time delta_t \<= 30, since the
+first 30 minutes were in the dark
+
+```{r}
+for (i in 1:11){
+  
+  # iterate (i) through each run dataframe
+  run_num <- paste0("run_", i)
+  
+  # Access the data frame using get()
+  df <-  get(run_num)
+  
+  
 
 ```
 
+# Subset for photosynthesis
 
-## Inspect each run
+But.... now the data is in the correct format!
 
-```{r}
-#create an empty df to store data from all runs
-allratesdat <- data.frame(matrix(ncol=3,nrow=0, dimnames=list(NULL, c("probe", "rate", "run"))))
-```
-
+Let's take a quick peek at each whole run:
 
 ```{r}
-run_num <- run_1 #Put the number of the run that you are caclulcating rate for here
-df.name <- "1" ##Update this each time you update the above
-inspect(run_num, time = 1, oxygen = 2:3)#*Assumes 8 probe respirometer****
+ggplot(resp_data, aes(x= delta_t, y= Value, color = run)) +
+  geom_point()
 ```
 
+# Inspect each run
+
+```{r}
+# create an empty df to store data from all runs
+allratesdat <- data.frame(matrix(ncol=3,nrow=0, dimnames=list(NULL, c("channel", "rate", "run"))))
+```
+
+```{r}
+for(i in 1:11){
+run_num <- paste0("run_", i) # 
+inspect(get(run_num), time = 1, oxygen = 2:7) # This is for the 6 probe setup
+}
+```
+
+> "There is a warning that the time data are not evenly spaced. This is
+> a common warning, and in this case can be safely ignored. It results
+> from using decimalised minutes as the time metric, which happen to be
+> numerically unevenly spaced, but are perfectly usable as the time
+> metric in respR.
+>
+> Rather than make assumptions that rows represent evenly spaced
+> datapoints, the functions in `respR` use actual time values for
+> analyses and rate calculations, and so even irregularly spaced data
+> are analysed correctly. Such warnings are for informative purposes: to
+> make the user aware of unusual data gaps, and also to remind users
+> that if they use row numbers for manual operations such as subsetting,
+> the same row width in different parts of the data may not necessarily
+> represent the same time period." - [respR closed chamber respirometry
+> vignette](https://januarharianto.github.io/respR/articles/closed.html#:~:text=There%20is%20a%20warning%20that%20the%20time%20data%20are%20not%20evenly%20spaced.%20This%20is%20a%20common%20warning%2C%20and%20in%20this%20case%20can%20be%20safely%20ignored.%20It%20results%20from%20using%20decimalised%20minutes%20as%20the%20time%20metric%2C%20which%20happen%20to%20be%20numerically%20unevenly%20spaced%2C%20but%20are%20perfectly%20usable%20as%20the%20time%20metric%20in%20respR).
+
+# Inspect individual columns
+
+## Using nested loops
+
+```{r}
+for(i in 1:11){
+run_num <- paste0("run_", i)
+  
+for (j in 2:7){
+  
+channel <- get(run_num) %>% 
+  select(1, j) %>% 
+  drop_na()
+
+inspect(channel, time = 1, oxygen = 2)
+
+  }
+}
+```
+
+```{}
+```
+
+# Calculate oxygen uptake rates using the [RespR package](https://januarharianto.github.io/respR/index.html)
 
 ```{r}
 ## In the respR package, use pipes:
-resp_data %>%        # using the anemones dataset,
-  select(7, 9) %>%   # select columns for time & oxygen
+for (i in 1:11){
+run_num <- paste0("run_", i)  
+get(run_num) %>%        # using the anemones dataset,
+  select(time = 3, oxygen = 5:10) %>%   # select columns for time & oxygen
   inspect()     %>%   # inspect the data, then
   auto_rate()   %>%   # automatically determine most linear segment
   print()       %>%   # a quick preview
   convert_rate("mg/L", "min", "mg/h/kg", 0.6, 0.4) # convert to units
+}
 ```
 
+# Split the run into respiration and photosynthesis
 
 ```{r}
 
+```
+
+```{r}
 allratesdat <- data.frame(matrix(ncol=6,nrow=0,dimnames=list(NULL,c("probe", "calc_rate", "calcR2", "auto_rate", "autoR2", "run"))))
 ```
 
-
-
-inspect each run to determine where we are going to calculate the rate (i.e. remove any weird spots of data) 
+Inspect each run to determine where we are going to calculate the rate
+(i.e. remove any weird spots of data)
 
 ```{r}
-#*#Set the start and end times over the period of o2 consumption based on
+# Set the start and end times over the period of o2 consumption based on
 # inspection of data 
 start_time <- 100 
 end_time <- 150
 ```
-
 
 YOU ShOULD NOT HAVE TO CHANGE ANY OF THE BELOW CODE FOR EACH RUN
 
@@ -222,44 +305,32 @@ allratesdat$probe <- as.factor(allratesdat$probe)
 animalratedat <- merge(allratesdat, resplog, by = c("probe","run"))
 animalratedat$Ploidy <- as.factor(animalratedat$Ploidy)
 animalratedat$Treatment <- as.factor(animalratedat$Treatment)
-
 ```
 
-
-#Calculate oxygen uptake levels for each probe over the specified period
-#What is the rate over a specific 25 minute period?" from = 4, to = 29,
-by = "time" #Create an empty data frame to save the results of the loop
-respdf \<- data.frame(matrix(ncol=2,nrow=0, dimnames=list(NULL,
-c("probe", "rate"))))#create an empty df to store rates. #i should be in
-the first column of the df and tempoxydf$summary$rate should be in the
-second for(i in 2:ncol(run_num)){ tempoxy \<- inspect(run_num, time = 1,
-oxygen = i) oxrate \<- calc_rate(tempoxy, from = start_time, to =
-end_time)#loop this for each probe in each run and save the data
-tempoxydf \<- data.frame(matrix(ncol=3,nrow=1, dimnames=list(NULL,
-c("probe", "rate","run"))))
-tempoxydf$probe <- colnames(run_num)[i]  tempoxydf$rate \<-
-oxrate$summary$rate tempoxydf\$run \<- df.name respdf \<- rbind(respdf,
-tempoxydf) } #rename the df to the name of teh run that you just used
-assign(paste('rates\_',df.name,sep=''),respdf)#names the df with the run
-name
-
-##Add all this data to one big data frame
+# Add all this data to one big data frame
 
 ```{r}
 allratesdat <- rbind(allratesdat, respdf)
 ```
-# Match the respiometery log with the rates -------------------------------
 
-#Read in your respirometry log - make sure that it is in teh appropiate
-foler 
+# Join to metadata
+
+Load in metadata file
 
 ```{r}
-resplog <- read.csv("Resplog_CSV.csv") 
-resplog$probe <- as.factor(resplog$probe)
-resplog$run <- as.factor(resplog$run)
+metadata <- read_csv("metadata/resp-metadata.csv")
+```
+
+Each row in the metadata file relates to a run and a channel, we have to
+join the data by run and channel so that the big dataframe has a column
+for id, treatment, etc.
+
+```{r}
+metadata$probe <- as.factor(metadata$probe)
+metadata$run <- as.factor(metadata$run)
 allratesdat$run <- as.factor(allratesdat$run)
 allratesdat$probe <- as.factor(allratesdat$probe) #Merge the data to one
-df animalratedat <- merge(allratesdat, resplog, by = c("probe","run"))
+df animalratedat <- merge(allratesdat, metadata, by = c("probe","run"))
 animalratedat$Ploidy <- as.factor(animalratedat$Ploidy)
 animalratedat$Treatment <- as.factor(animalratedat$Treatment)
 ```
