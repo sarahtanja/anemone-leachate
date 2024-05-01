@@ -30,6 +30,20 @@ Templates for the log file is in the repo names
 "Resplog_Template_CSV.csv" the respirometry data files should be named
 in order. i.e. the first file should correspond to run #1
 
+Familiarize yourself with the `respR` package [closed chamber
+respirometry
+vignette](https://januarharianto.github.io/respR/articles/closed.html#:~:text=There%20is%20a%20warning%20that%20the%20time%20data%20are%20not%20evenly%20spaced.%20This%20is%20a%20common%20warning%2C%20and%20in%20this%20case%20can%20be%20safely%20ignored.%20It%20results%20from%20using%20decimalised%20minutes%20as%20the%20time%20metric%2C%20which%20happen%20to%20be%20numerically%20unevenly%20spaced%2C%20but%20are%20perfectly%20usable%20as%20the%20time%20metric%20in%20respR)
+
+Because the data we are working with should have a negative slope in the
+first 30 minutes representing anemone & symbiont respiration, and a
+positive slope in the last 30 minutes representing symbiont
+photosynthesis, we need to split the data into these two slopes before
+running it through the respR package so that the rolling rate regression
+can be calculated for each slope.
+
+The end goal is to get 66 respirometry rates and 66 photosynthesis rates
+(two rates for each respirometry chamber across 11 runs)
+
 # Install and load packages
 
 ```{r}
@@ -61,7 +75,7 @@ If respR is not available for your version of R...
 6.  Run the installer with all the options by default (here we may need
     to click Run anyway on the first pop-up window)
 7.  For the new versions of R (v4.0.0), add
-    PATH='${RTOOLS40_HOME}\usr\bin;${PATH}' to the .Renviron file:
+    PATH='\\\${RTOOLS40_HOME}\usr\bin;\${PATH}' to the .Renviron file:
 
 ```{r}
 # For R v4.0.0 and newer, add RTools to PATH
@@ -86,10 +100,26 @@ if ("devtools" %in% rownames(installed.packages()) == 'FALSE') install.packages(
 devtools::install_github("januarharianto/respR")
 ```
 
-# Pull in data
+# Pull in metadata & data
+
+Read in the metadata
+```{r}
+nem_metadata <- read_csv("../metadata/nem_metadata.csv")
+resp_log <-  read_csv("../metadata/resp_log.csv")
+```
+Join metadata & log
+```{r}
+# rename the 'Spec_ID' column to 'id' to match the metadata and log dataframes
+nem_metadata <- nem_metadata %>% 
+  rename(id=Spec_ID)  
+
+# merge the metadata and log by the 'id'
+merged_metadata <- right_join(nem_metadata, resp_log, by = "id")
+
+```
+
 
 Read in all the respirometry data from `.csv` files
-
 ```{r}
 
 # Directory containing the CSV files
@@ -99,15 +129,15 @@ data_path <- "data"
 all_files <- list.files(data_path, full.names = TRUE)
 
 # Read in all CSV files, adding a run column 
-all_data <- map2_df(all_files, seq_along(all_files), ~ read_csv(.x, skip = 1) %>%
-                                     slice(-c(n() - 1, n())) %>%
+all_data <- map2_df(all_files, seq_along(all_files), ~ read_csv(.x, skip = 1, show_col_types = FALSE) %>% # skips the first row
+                                     slice(-c(n() - 1, n())) %>% #removes the last two rows
                                      mutate(filename = basename(.x),
                                             run = .y))
 ```
 
 The `run` column will be what is used to merge the respirometry data
-with the respirometry log.
-
+with the respirometry log later on in the script.
+Here, we make the `run` column a factor.
 ```{r}
 # Make each run a factor (not numeric) 
 all_data$run <- as.factor(all_data$run)
@@ -119,6 +149,7 @@ class(all_data$run)
 levels(all_data$run)
 ```
 
+
 # Put the data in the right format
 
 In order to do this we need each probe or channel to have its own oxygen
@@ -128,6 +159,13 @@ a,b,c,d, etc. are O2 measurements from different chambers):
 ```{r}
 head(urchins.rd)
 ```
+
+For this I'd like the names of each column to represent the run and the channel, like `1.1` would represent run 1, channel 1
+
+OR 
+
+Should I have each one be the `id` of the anemone? the problem with that is there are 11 'blanks' that are all the same. Each blank matches a run, so it could be run.id, or even run.channel.id
+
 
 ## Make time numeric
 
@@ -151,7 +189,7 @@ Let's just pull out the things we want to keep track of: delta_T, Value,
 Channel
 
 This is how Craig did it:
-
+## Use `pivot wider` to make dataframes for each run
 ```{r}
 # Gets a list of all the runs to filter by
 run_list <- levels(all_data$run)
@@ -162,7 +200,7 @@ for(i in 1:length(run_list)){
   df <- all_data %>% select(delta_t,Channel,Value, run) %>% 
     filter(run == run_list[i])
   
-  df <- df %>% select(delta_t,Channel,Value) %>% 
+  df <- df %>% select(delta_t, Channel, Value) %>% 
     pivot_wider(names_from = Channel, values_from = Value)
   
   df$delta_t <- as.numeric(df$delta_t)
@@ -180,12 +218,7 @@ values in your run dataframes
 The samples should have been taken every 10 seconds, but for some reason
 they don't time up with each other (and they should...)
 
-# Inspect each run
-
-```{r}
-# create an empty df to store data from all runs
-allratesdat <- data.frame(matrix(ncol=3,nrow=0, dimnames=list(NULL, c("channel", "rate", "run"))))
-```
+# Inspect each run in the entire dataset
 
 ```{r}
 for(i in 1:11){
@@ -210,13 +243,134 @@ inspect(get(run_num), time = 1, oxygen = 2:7) # This is for the 6 probe setup
 > represent the same time period." - [respR closed chamber respirometry
 > vignette](https://januarharianto.github.io/respR/articles/closed.html#:~:text=There%20is%20a%20warning%20that%20the%20time%20data%20are%20not%20evenly%20spaced.%20This%20is%20a%20common%20warning%2C%20and%20in%20this%20case%20can%20be%20safely%20ignored.%20It%20results%20from%20using%20decimalised%20minutes%20as%20the%20time%20metric%2C%20which%20happen%20to%20be%20numerically%20unevenly%20spaced%2C%20but%20are%20perfectly%20usable%20as%20the%20time%20metric%20in%20respR).
 
-# Inspect individual columns
+# Split each run into respiration and photosynthesis
 
-## Using nested loops
+## Subset for respiration
+
+Subset for respiration data by filtering time delta_t \<= 30, since the
+first 30 minutes were in the dark. I also trim off the first 5 minute to
+account for acclimation to the chambers and thermal stabilization.
+
+```{r}
+# Loop through each run_i
+for (i in 1:11){
+  run_num <- paste0("run_", i)
+  resp_name <- paste0("resp_", run_num)
+  
+  # Filter the current run_i dataframe and store it as resp_run_i
+  assign(resp_name, get(run_num) %>% 
+  filter(delta_t < 30, delta_t > 5)) 
+    # time greater than 5 min less than 30 mins
+}
+```
+
+## Subset for photosynthesis
+
+The lights were turned on after 30 minutes, and the respirometry was
+ended at about a total of 60 minutes (though some runs ran longer). Here
+I trim between 35 and 60, to give 5 minutes of 'light phase'
+acclimation.
+
+```{r}
+# Loop through each run_i
+for (i in 1:11){
+  run_num <- paste0("run_", i)
+  resp_name <- paste0("phot_", run_num)
+  
+  # Filter the current run_i dataframe and store it as resp_run_i
+  assign(resp_name, get(run_num) %>% 
+  filter(delta_t > 35, delta_t < 60 ))
+  
+}
+```
+
+# Inspect individual columns 
+> To extract rates, it is best to assign each time-oxygen column pair individually as a separate inspect object.- [respR closed-chamber respirometry vignette](https://januarharianto.github.io/respR/articles/closed.html#:~:text=There%20is%20a%20warning%20that%20the%20time%20data%20are%20not%20evenly%20spaced.%20This%20is%20a%20common%20warning%2C%20and%20in%20this%20case%20can%20be%20safely%20ignored.%20It%20results%20from%20using%20decimalised%20minutes%20as%20the%20time%20metric%2C%20which%20happen%20to%20be%20numerically%20unevenly%20spaced%2C%20but%20are%20perfectly%20usable%20as%20the%20time%20metric%20in%20respR)
+
+```{r}
+# create an empty df to store data from all runs
+rates <- data.frame(matrix(ncol=8,nrow=0, dimnames=list(NULL, c("id",
+                                                                "run",
+                                                                "channel",
+                                                                "wet_weight",
+                                                                "resp_rate",
+                                                                "resp_r2",
+                                                                "phot_rate",
+                                                                "phot_r2"))))
+```
+
+
+```{r}
+
+```
+
+```{r}
+######YOU ShOULD NOT HAVE TO CHANGE ANY OF THE BELOW CODE FOR EACH RUN
+
+#Calculate oxygen uptake levels for each probe over the specified period
+#What is the rate over a specific 25 minute period?” from = 4, to = 29, by = "time"
+#Create an empty data frame to save the results of the loop
+respdf <- data.frame(matrix(ncol=2,nrow=0, dimnames=list(NULL, c("probe", "rate"))))#create an empty df to store rates.
+#i should be in the first column of the df and tempoxydf$summary$rate should be in the second
+for(i in 2:ncol(run_num)){
+  tempoxy <- inspect(run_num, time = 1, oxygen = i)
+  oxrate <- calc_rate(tempoxy, from = start_time, to = end_time)#loop this for each probe in each run and save the data
+  tempoxydf <- data.frame(matrix(ncol=3,nrow=1, dimnames=list(NULL, c("probe", "rate","run"))))
+  tempoxydf$probe <- colnames(run_num)[i]
+  tempoxydf$rate <- oxrate$summary$rate
+  tempoxydf$run <- df.name
+  respdf <- rbind(respdf, tempoxydf)
+}
+#rename the df to the name of teh run that you just used
+assign(paste('rates_',df.name,sep=''),respdf)#names the df with the run name
+
+```
+
+
+
+## For respirometry
+
+Using a nested loop
+
+```{r}
+# 1:11 is for 11 respirometry runs, will need to change this if you are processing a different number of runs
+# future goal: make this flexible to fit any number of runs
+for (i in 1:11) {
+  # run_num will look like `resp_run_1`, 'resp_run_2', 'resp_run_3', etc.
+  run_num <- paste0("resp_run_", i)
+  
+  # 2:7 is for a 6-probe setup where each run has a delta_t timestamp column in column 1 and 6  columns correspoinding to the PreSens Channels (in this experiment, we used Channels 1-5, & 7)*skipping 6
+  for (j in 2:7) {
+    # df` is the temporary dataframe that has 2 columns: 1 for the timestamp and 2 for the oxygen values for a single probe/channel during a single run
+    df <- get(run_num) %>%
+      select(1, j) %>%
+      drop_na()
+    
+    # Get the name of the current column
+    col_name <- colnames(get(run_num))[j]
+    
+    # Name of the new variable for this channel in this run
+    run_channel <- paste0(run_num, "_", col_name)
+    
+    assign(run_channel, df) %>%
+      inspect(time = "delta_t", oxygen = 2) %>%
+      auto_rate()
+  }
+}
+```
+
+```{r}
+inspect(resp_run_1, time = 1, oxygen = 2:7) %>% auto_rate()
+```
+
+```{}
+```
+
+## For photosynthesis
 
 ```{r}
 for(i in 1:11){
-run_num <- paste0("run_", i)
+run_num <- paste0("phot_run_", i)
   
 for (j in 2:7){
   
@@ -241,15 +395,6 @@ run_10 %>%        # using the anemones dataset,
   print()       %>%   # a quick preview
   convert_rate("mg/L", "min", "mg/h/kg", 0.6, 0.4) # convert to units
 ```
-
-# Split the run into respiration and photosynthesis
-
-## Subset for respiration
-
-Subset for respiration data by filtering time delta_t \<= 30, since the
-first 30 minutes were in the dark
-
-## Subset for photosynthesis
 
 ```{r}
 

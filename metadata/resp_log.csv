@@ -1,4 +1,4 @@
-date,time-end,min-D-L,channel,id,treatment,filename,ext,run,notes
+date,time-resp-end,min-D-L,channel,id,treatment,filename,ext,run,notes
 26Apr2024,1305,30,1,PVC_6,PVC_0.1_percent,1_anemone-PVC-PP-26APR2024_O2,.csv,1,
 26Apr2024,1305,30,2,PVC_24,PVC_100_percent,1_anemone-PVC-PP-26APR2024_O2,.csv,1,
 26Apr2024,1305,30,3,Control_3,Control,1_anemone-PVC-PP-26APR2024_O2,.csv,1,
@@ -16,7 +16,7 @@ date,time-end,min-D-L,channel,id,treatment,filename,ext,run,notes
 26Apr2024,1610,33,3,PVC_20,PVC_10_percent,3_anemone-PVC-PP-26APR2024_O2,.csv,3,
 26Apr2024,1610,33,4,blank,blank,3_anemone-PVC-PP-26APR2024_O2,.csv,3,
 26Apr2024,1610,33,5,PVC_13,PVC_1_percent,3_anemone-PVC-PP-26APR2024_O2,.csv,3,
-26Apr2024,1610,33,7,PVC_8,PVC_0.1_percent,3_anemone-PVC-PP-26APR2024_O2,.csv,3,
+26Apr2024,1610,33,7,PVC_8,PVC_0.1_percent,3_anemone-PVC-PP-26APR2024_O2,.csv,3,"stir bar stalled, restarted 50mins in"
 26Apr2024,1740,35,1,blank,blank,4_anemone-PVC-PP-26APR2024_O2,.csv,4,
 26Apr2024,1740,35,2,Control_1,Control,4_anemone-PVC-PP-26APR2024_O2,.csv,4,
 26Apr2024,1740,35,3,PVC_15,PVC_1_percent,4_anemone-PVC-PP-26APR2024_O2,.csv,4,
@@ -28,9 +28,9 @@ date,time-end,min-D-L,channel,id,treatment,filename,ext,run,notes
 26Apr2024,1910,30,3,blank,blank,5_anemone-PVC-PP-26APR2024_O2,.csv,5,
 26Apr2024,1910,30,4,PVC_16,PVC_10_percent,5_anemone-PVC-PP-26APR2024_O2,.csv,5,
 26Apr2024,1910,30,5,PP(A)_19,PP(A)_10_percent,5_anemone-PVC-PP-26APR2024_O2,.csv,5,
-26Apr2024,1910,30,7,PP(A)_24,PP(A)_100_percent,5_anemone-PVC-PP-26APR2024_O2,.csv,5,
+26Apr2024,1910,30,7,PP(A)_24,PP(A)_100_percent,5_anemone-PVC-PP-26APR2024_O2,.csv,5,anemone tentacle contacted probe
 26Apr2024,2040,31,1,PVC_25,PP(A)_100_percent,6_anemone-PVC-PP-26APR2024_O2,.csv,6,
-26Apr2024,2040,31,2,PVC_18,PVC_10_percent,6_anemone-PVC-PP-26APR2024_O2,.csv,6,
+26Apr2024,2040,31,2,PVC_18,PVC_10_percent,6_anemone-PVC-PP-26APR2024_O2,.csv,6,temp probe popped out at 50 mins
 26Apr2024,2040,31,3,Control_5,Control,6_anemone-PVC-PP-26APR2024_O2,.csv,6,
 26Apr2024,2040,31,4,PVC_4,PVC_0.01_percent,6_anemone-PVC-PP-26APR2024_O2,.csv,6,
 26Apr2024,2040,31,5,blank,blank,6_anemone-PVC-PP-26APR2024_O2,.csv,6,

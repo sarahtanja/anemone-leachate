@@ -1,8 +1,0 @@
-
-# print.inspect # -----------------------
-
-Uneven Time data locations (first 20 shown) in column: delta_t 
- [1]  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20
-Minimum and Maximum intervals in uneven Time data: 
-[1] 0.166 4.232
------------------------------------------
