@@ -1,5 +1,5 @@
 ---
-title: "Find stable oxygen consumption rate from respirometry runs"
+title: "Find stable oxygen consumption & production rates from respirometry runs"
 subtitle: ""
 author: "Craig Norrie"
 date: "`r format(Sys.time(), '%d %B, %Y')`"  
@@ -108,6 +108,7 @@ nem_metadata <- read_csv("../metadata/nem_metadata.csv")
 resp_log <-  read_csv("../metadata/resp_log.csv")
 ```
 Join metadata & log
+The resulting merged metadata files should have 66 rows (11 rows added for the 11 `blanks` in the respirometry runs)
 ```{r}
 # rename the 'Spec_ID' column to 'id' to match the metadata and log dataframes
 nem_metadata <- nem_metadata %>% 
@@ -287,161 +288,179 @@ for (i in 1:11){
 # Inspect individual columns 
 > To extract rates, it is best to assign each time-oxygen column pair individually as a separate inspect object.- [respR closed-chamber respirometry vignette](https://januarharianto.github.io/respR/articles/closed.html#:~:text=There%20is%20a%20warning%20that%20the%20time%20data%20are%20not%20evenly%20spaced.%20This%20is%20a%20common%20warning%2C%20and%20in%20this%20case%20can%20be%20safely%20ignored.%20It%20results%20from%20using%20decimalised%20minutes%20as%20the%20time%20metric%2C%20which%20happen%20to%20be%20numerically%20unevenly%20spaced%2C%20but%20are%20perfectly%20usable%20as%20the%20time%20metric%20in%20respR)
 
-```{r}
-# create an empty df to store data from all runs
-rates <- data.frame(matrix(ncol=8,nrow=0, dimnames=list(NULL, c("id",
-                                                                "run",
-                                                                "channel",
-                                                                "wet_weight",
-                                                                "resp_rate",
-                                                                "resp_r2",
-                                                                "phot_rate",
-                                                                "phot_r2"))))
-```
-
-
-```{r}
-
-```
-
-```{r}
-######YOU ShOULD NOT HAVE TO CHANGE ANY OF THE BELOW CODE FOR EACH RUN
-
-#Calculate oxygen uptake levels for each probe over the specified period
-#What is the rate over a specific 25 minute period?” from = 4, to = 29, by = "time"
-#Create an empty data frame to save the results of the loop
-respdf <- data.frame(matrix(ncol=2,nrow=0, dimnames=list(NULL, c("probe", "rate"))))#create an empty df to store rates.
-#i should be in the first column of the df and tempoxydf$summary$rate should be in the second
-for(i in 2:ncol(run_num)){
-  tempoxy <- inspect(run_num, time = 1, oxygen = i)
-  oxrate <- calc_rate(tempoxy, from = start_time, to = end_time)#loop this for each probe in each run and save the data
-  tempoxydf <- data.frame(matrix(ncol=3,nrow=1, dimnames=list(NULL, c("probe", "rate","run"))))
-  tempoxydf$probe <- colnames(run_num)[i]
-  tempoxydf$rate <- oxrate$summary$rate
-  tempoxydf$run <- df.name
-  respdf <- rbind(respdf, tempoxydf)
-}
-#rename the df to the name of teh run that you just used
-assign(paste('rates_',df.name,sep=''),respdf)#names the df with the run name
-
-```
-
-
 
 ## For respirometry
 
 Using a nested loop
-
 ```{r}
-# 1:11 is for 11 respirometry runs, will need to change this if you are processing a different number of runs
-# future goal: make this flexible to fit any number of runs
+# Create an empty data frame to store the rates
+resp_rates <- data.frame(run = integer(), channel = factor(), resp_rate = numeric(), resp_r2 = numeric())
+
+# Loop through respirometry runs
 for (i in 1:11) {
   # run_num will look like `resp_run_1`, 'resp_run_2', 'resp_run_3', etc.
   run_num <- paste0("resp_run_", i)
   
-  # 2:7 is for a 6-probe setup where each run has a delta_t timestamp column in column 1 and 6  columns correspoinding to the PreSens Channels (in this experiment, we used Channels 1-5, & 7)*skipping 6
+  # Create an empty data frame to store rates for this run
+  auto_df <- data.frame(run = integer(), channel = factor(), resp_rate = numeric(), resp_r2 = numeric())
+  
+  # 2:7 is for a 6-probe setup where each run has a delta_t timestamp column in column 1 
+  # and 6 columns corresponding to the PreSens Channels (in this experiment, Channels 1-5, & 7)*skipping 6
   for (j in 2:7) {
-    # df` is the temporary dataframe that has 2 columns: 1 for the timestamp and 2 for the oxygen values for a single probe/channel during a single run
     df <- get(run_num) %>%
       select(1, j) %>%
       drop_na()
     
-    # Get the name of the current column
-    col_name <- colnames(get(run_num))[j]
+    # use respR inspect() and save it to object `inspected`
+    inspected <- inspect(df, time = "delta_t", oxygen = 2)
     
-    # Name of the new variable for this channel in this run
-    run_channel <- paste0(run_num, "_", col_name)
+    # pass object `inspected` through respR `auto_rate()`
+    auto_rated <- auto_rate(inspected)
     
-    assign(run_channel, df) %>%
-      inspect(time = "delta_t", oxygen = 2) %>%
-      auto_rate()
+    # Create a data frame to store the rate object information for this channel
+    auto_df_channel <- data.frame(
+      run = i,
+      channel = as.factor(colnames(get(run_num))[j]),
+      resp_rate = auto_rated$summary$rate[1],
+      resp_r2 = auto_rated$summary$rsq[1]
+    )
+    
+    # Append the rates for this channel to the main auto_df
+    auto_df <- bind_rows(auto_df, auto_df_channel)
   }
+  
+  # Append the rates for this run to the main rates data frame
+  resp_rates <- bind_rows(resp_rates, auto_df)
 }
+ 
+```
+## QAQC respiration rates
+
+```{r}
+# filter for rates that are positive
+resp_badrates <- resp_rates %>% filter(resp_rate>0)
+print(resp_badrates)
 ```
 
 ```{r}
-inspect(resp_run_1, time = 1, oxygen = 2:7) %>% auto_rate()
+# filter for r2 values that are below 0.8
+resp_badr2 <- resp_rates %>% filter(resp_r2<0.8)
+print(resp_badr2)
+```
+```{r}
+resp_baddies <- full_join(resp_badr2, resp_badrates)
+print(resp_baddies)
 ```
 
-```{}
+Inspect the 'bad data' individually
+
+### 2.3
+```{r}
+inspect(resp_run_2, time = 'delta_t', oxygen = '3') %>% auto_rate() 
+```
+Why is this different than the dataframe ... UGH
+WAIT is it because I filtered out the NAs in the dataframe, but not here ?!
+
+```{r}
+QAQC2.3 <- resp_run_2 %>% select('delta_t', '3') %>% drop_na()
+inspect(QAQC2.3, time = 'delta_t', oxygen = '3') %>%  auto_rate()
+```
+HUH. WHY does dropping NA values do this!? 
+```{r}
+print(QAQC2.3)
+```
+```{r}
+print(resp_run_2[, c('delta_t', '3')])
+```
+I don't know why... but I want to use the data from the non NA dropped one in this case, so I'm going to replace it in the `resp_rates` dataframe
+
+```{r}
+new2.3 <-  inspect(resp_run_2, time = 'delta_t', oxygen = '3') %>% 
+  auto_rate()
+
+this.run <- 2
+this.channel <- 3
+new.rate <- new2.3$summary$rate[1]
+new.rsq <- new2.3$summary$rsq[1]
+
+
+# Replace value in 'rate' column based on conditions in 'run' and 'channel' columns
+resp_rates <- resp_rates %>%
+  mutate(resp_rate = case_when(
+    run == this.run & channel == this.channel ~ new.rate, TRUE ~ resp_rate  # Keep the original value if no condition is met
+  )) %>% 
+    mutate(resp_r2 = case_when(
+    run == this.run & channel == this.channel ~ new.rsq, TRUE ~ resp_r2  # Keep the original value if no condition is met
+  ))
+
+filter(resp_rates, run == this.run & channel == this.channel)
 ```
 
 ## For photosynthesis
 
+The following code should result in a dataframe that has one row for each respirometry chamber (in this dataset, 66 rows)
 ```{r}
-for(i in 1:11){
-run_num <- paste0("phot_run_", i)
-  
-for (j in 2:7){
-  
-channel <- get(run_num) %>% 
-  select(1, j) %>% 
-  drop_na()
+# Create an empty data frame to store the rates
+phot_rates <- data.frame(run = integer(), channel = factor(), phot_rate = numeric(), phot_r2 = numeric())
 
-inspect(channel, time = 1, oxygen = 2)
-
+# Loop through respirometry runs
+for (i in 1:11) {
+  # run_num will look like `phot_run_1`, 'phot_run_2', 'phot_run_3', etc.
+  # these dataframes were made in the `subset for photosynthesis` step
+  run_num <- paste0("phot_run_", i)
+  
+  # Create an empty data frame to store rates for this run
+  auto_df <- data.frame(run = integer(), channel = factor(), phot_rate = numeric(), phot_r2 = numeric())
+  
+  # 2:7 is for a 6-probe setup where each run has a delta_t timestamp column in column 1 
+  # and 6 columns corresponding to the PreSens Channels (in this experiment, Channels 1-5, & 7)*skipping 6
+  for (j in 2:7) {
+    df <- get(run_num) %>%
+      select(1, j) %>%
+      drop_na()
+    
+    # use respR inspect() and save it to object `inspected`
+    inspected <- inspect(df, time = "delta_t", oxygen = 2)
+    
+    # pass object `inspected` through respR `auto_rate()`
+    auto_rated <- auto_rate(inspected)
+    
+    # Create a data frame to store the rate object information for this channel
+    auto_df_channel <- data.frame(
+      run = i,
+      channel = as.factor(colnames(get(run_num))[j]),
+      phot_rate = auto_rated$summary$rate[1],
+      phot_r2 = auto_rated$summary$rsq[1]
+    )
+    
+    # Append the rates for this channel to the main auto_df
+    auto_df <- bind_rows(auto_df, auto_df_channel)
   }
+  
+  # Append the rates for this run to the main rates data frame
+  phot_rates <- bind_rows(phot_rates, auto_df)
 }
 ```
-
-# Calculate oxygen uptake rates using the [RespR package](https://januarharianto.github.io/respR/index.html)
+## QAQC photosynthesis rates
 
 ```{r}
-## In the respR package, use pipes:
-run_10 %>%        # using the anemones dataset,
-  select(time = 1, oxygen = 2) %>%   # select columns for time & oxygen
-  inspect()     %>%   # inspect the data, then
-  auto_rate()   %>%   # automatically determine most linear segment
-  print()       %>%   # a quick preview
-  convert_rate("mg/L", "min", "mg/h/kg", 0.6, 0.4) # convert to units
+# Look for rates that are negative
+phot_badrates <- phot_rates %>% filter(phot_rate<0)
+print(phot_badrates)
 ```
 
 ```{r}
-
+# Look for rate r2 values that are less than 0.8
+phot_badr2 <- phot_rates %>% filter(phot_r2<0.8)
+print(phot_badr2)
 ```
 
 ```{r}
-allratesdat <- data.frame(matrix(ncol=6,nrow=0,dimnames=list(NULL,c("probe", "calc_rate", "calcR2", "auto_rate", "autoR2", "run"))))
+phot_baddies <- full_join(phot_badr2, phot_badrates)
+print(phot_baddies)
 ```
 
-Inspect each run to determine where we are going to calculate the rate
-(i.e. remove any weird spots of data)
 
-```{r}
-# Set the start and end times over the period of o2 consumption based on
-# inspection of data 
-start_time <- 100 
-end_time <- 150
-```
-
-YOU ShOULD NOT HAVE TO CHANGE ANY OF THE BELOW CODE FOR EACH RUN
-
-```{r}
-#Calculate oxygen uptake levels for each probe over the specified period
-#What is the rate over a specific 25 minute period?” from = 4, to = 29, by = "time"
-#Create an empty data frame to save the results of the loop
-respdf <- data.frame(matrix(ncol=6,nrow=0, dimnames=list(NULL, c("probe", "calc_rate", "calcR2", "auto_rate", "autoR2", "run"))))#create an empty df to store rates.
-
-#i should be in the first column of the df and tempoxydf$summary$rate should be in the second
-for(i in 2:ncol(run_num)){
-  tempoxy <- inspect(run_num, time = 1, oxygen = i)
-  calcrate <- calc_rate(tempoxy, from = start_time, to = end_time)#loop this for each probe in each run and save the data
-  autorate <- auto_rate(tempoxy)
-  tempoxydf <- data.frame(matrix(ncol=6,nrow=1, dimnames=list(NULL, c("probe", "calc_rate","calcR2", "auto_rate", "autoR2", "run"))))
-  tempoxydf$probe <- colnames(run_num)[i]
-  tempoxydf$calc_rate <- calcrate$summary$calc_rate
-  tempoxydf$run <- df.name
-  tempoxydf$auto_rate <- autorate$summary$auto_rate
-  respdf <- rbind(respdf, tempoxydf)
-}
-#rename the df to the name of the run that you just used
-assign(paste('rates_',df.name,sep=''),respdf)#names the df with the run name
-
-##Add all this data to one big data frame 
-
-allratesdat <- rbind(allratesdat, respdf)
-
-```
 
 ```{r}
 # Match the respiometery log with the rates -------------------------------
@@ -458,7 +477,7 @@ animalratedat$Ploidy <- as.factor(animalratedat$Ploidy)
 animalratedat$Treatment <- as.factor(animalratedat$Treatment)
 ```
 
-# Add all this data to one big data frame
+# Join the P&R rates dataframes
 
 ```{r}
 allratesdat <- rbind(allratesdat, respdf)
@@ -485,3 +504,4 @@ df animalratedat <- merge(allratesdat, metadata, by = c("probe","run"))
 animalratedat$Ploidy <- as.factor(animalratedat$Ploidy)
 animalratedat$Treatment <- as.factor(animalratedat$Treatment)
 ```
+)()
