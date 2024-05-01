@@ -14,7 +14,6 @@ link-external-icon: true
 link-external-newwindow: true
 ---
 
-
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 ## install packages
 if (!require("tidyverse", character.only = TRUE)) { install.packages("tidyverse")}
@@ -25,6 +24,30 @@ if (!require("kableExtra", character.only = TRUE)) { install.packages("kableExtr
 ## load libraries
 library(tidyverse)
 library(kableExtra)
+```
+
+# 18APR2024
+
+```{r}
+# Well plate counts of freshly hatched artemia nauplii
+# counts represent 10uL volumes
+A <- c(6,6,10,7,3,11)
+B <- c(10,6,14,14,14,9)
+C <- c(7,11,12,21,10,13)
+D <- c(8,14,11,8,6,13)
+
+naup <- data.frame(c(A, B, C, D)) %>%
+  rename(counts = 1)
+
+summary(naup)
+sd(naup$counts)
+
+# Calculate coefficient of variation
+cv <- sd(naup$counts) / mean(naup$counts) * 100
+
+# Print result
+print(cv)
+
 ```
 
 # 27MAR2024
@@ -134,6 +157,7 @@ So. 20uL to 4mL, multiply by 200! 27+/-4 nauplii in 20uL, then there will be any
 I CAN COUNT SHRIMP.
 
 ## 11-MAR-2024
+
 ```{r}
 # Well plate counts of freshly hatched artemia nauplii
 # counts represent 20uL volumes
@@ -161,7 +185,7 @@ print(cv)
 (mean(naup$counts)-sd(naup$counts))*50
 
 ```
-So between ~1.7K and ~1.1k artemia each
 
-I think 4mL last time was too much...  This time we do 1mL each instead? When I gave them 4mL at this concentration them last time there was a lot of leftover dead nauplii that just fouled up the dishes...
-For this feeding I gave them 1mL each at 15:30 on Thursday April 11th, after lowering the water level to just below the jar lids. I left the water level low until ___
+So between \~1.7K and \~1.1k artemia each
+
+I think 4mL last time was too much... This time we do 1mL each instead? When I gave them 4mL at this concentration them last time there was a lot of leftover dead nauplii that just fouled up the dishes... For this feeding I gave them 1mL each at 15:30 on Thursday April 11th, after lowering the water level to just below the jar lids. I left the water level low until \_\_\_
