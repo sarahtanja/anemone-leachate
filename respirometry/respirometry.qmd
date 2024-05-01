@@ -111,27 +111,8 @@ devtools::install_github("januarharianto/respR")
 You should only have to install respR from devtools once.
 :::
 
-# Pull in metadata & data
+# Pull in data
 
-Read in the metadata
-
-```{r}
-nem_metadata <- read_csv("../metadata/nem_metadata.csv")
-resp_log <-  read_csv("../metadata/resp_log.csv")
-```
-
-Join metadata & log The resulting merged metadata files should have 66
-rows (11 rows added for the 11 `blanks` in the respirometry runs)
-
-```{r}
-# rename the 'Spec_ID' column to 'id' to match the metadata and log dataframes
-nem_metadata <- nem_metadata %>% 
-  rename(id=Spec_ID)  
-
-# merge the metadata and log by the 'id'
-merged_metadata <- right_join(nem_metadata, resp_log, by = "id")
-
-```
 
 Read in all the respirometry data from `.csv` files
 
@@ -509,25 +490,57 @@ animalratedat$Ploidy <- as.factor(animalratedat$Ploidy)
 animalratedat$Treatment <- as.factor(animalratedat$Treatment)
 ```
 
-# 
-
 # Join the P&R rates dataframes
 
 ```{r}
-allratesdat <- rbind(allratesdat, respdf)
+rates <- left_join(resp_rates, phot_rates)
 ```
 
 # Join to metadata
 
-Load in metadata file
+Read in the metadata
 
 ```{r}
-metadata <- read_csv("metadata/resp-metadata.csv")
+nem_metadata <- read_csv("../metadata/nem_metadata.csv")
+resp_log <-  read_csv("../metadata/resp_log.csv")
+```
+
+Join metadata & log The resulting merged metadata files should have 66
+rows (11 rows added for the 11 `blanks` in the respirometry runs)
+
+```{r}
+# rename the 'Spec_ID' column to 'id' to match the metadata and log dataframes
+nem_metadata <- nem_metadata %>% 
+  rename(id=Spec_ID)  
+
+# merge the metadata and log by the 'id'
+merged_metadata <- right_join(nem_metadata, resp_log, by = "id")
+
+
+# make channel a factor
+merged_metadata$channel <- as.factor(merged_metadata$channel)
+
+```
+
+
+```{r}
+head(merged_metadata)
 ```
 
 Each row in the metadata file relates to a run and a channel, we have to
 join the data by run and channel so that the big dataframe has a column
-for id, treatment, etc.
+for id, treatment, and wet weight
+
+```{r}
+rates_all_cols <- left_join(rates, merged_metadata)
+```
+
+Let's trim it down to make working with this a bit easier by selecting just the columns we really care about
+
+```{r}
+rates_select_cols <- rates_all_cols %>% select("id", "treatment", "run", "channel", "resp_rate", "resp_r2", "phot_rate", "phot_r2", "wet_weight_(g)")
+```
+
 
 ```{r}
 metadata$probe <- as.factor(metadata$probe)
