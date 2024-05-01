@@ -59,7 +59,6 @@ Historical Data: <https://www.ndbc.noaa.gov/station_history.php?station=tcnw1>
 ## Install Packages
 
 ```{r install-packages, eval=TRUE, cache=TRUE}
-
 if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages('tidyverse')
 if ("plotly" %in% rownames(installed.packages()) == 'FALSE') install.packages('plotly')
 ```
@@ -77,7 +76,7 @@ library(plotly)
 mkdir -p data
 ```
 
-## Use `curl` to get NDBC data 
+## Use `curl` to get NDBC data
 
 Pull data from the year 2021 in which the June record-breaking heat wave occurred...
 

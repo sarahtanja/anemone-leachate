@@ -1,0 +1,540 @@
+---
+title: "Find stable oxygen consumption & production rates from respirometry runs"
+subtitle: ""
+author: "Craig Norrie"
+date: "`r format(Sys.time(), '%d %B, %Y')`"  
+format:
+  html:
+    df-print: paged
+    toc: true
+    toc-location: right
+    smooth-scroll: true
+    link-external-icon: true
+    link-external-newwindow: true
+    code-fold: false
+    code-tools: true
+    code-copy: true
+    highlight-style: breeze
+    code-overflow: wrap
+    theme: minty
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+Author Craig Norrie - cnorrie\@uw.edu Last modified: November 2022 This
+code will read in data from respirometry files that were produced using
+PreSens respirometers one file containing each probe for each run should
+exist and a master log file with the info for each animal should exist
+Templates for the log file is in the repo names
+"Resplog_Template_CSV.csv" the respirometry data files should be named
+in order. i.e. the first file should correspond to run #1
+
+Familiarize yourself with the `respR` package [closed chamber
+respirometry
+vignette](https://januarharianto.github.io/respR/articles/closed.html#:~:text=There%20is%20a%20warning%20that%20the%20time%20data%20are%20not%20evenly%20spaced.%20This%20is%20a%20common%20warning%2C%20and%20in%20this%20case%20can%20be%20safely%20ignored.%20It%20results%20from%20using%20decimalised%20minutes%20as%20the%20time%20metric%2C%20which%20happen%20to%20be%20numerically%20unevenly%20spaced%2C%20but%20are%20perfectly%20usable%20as%20the%20time%20metric%20in%20respR)
+
+Because the data we are working with should have a negative slope in the
+first 30 minutes representing anemone & symbiont respiration, and a
+positive slope in the last 30 minutes representing symbiont
+photosynthesis, we need to split the data into these two slopes before
+running it through the respR package so that the rolling rate regression
+can be calculated for each slope.
+
+The end goal is to get 66 respirometry rates and 66 photosynthesis rates
+(two rates for each respirometry chamber across 11 runs)
+
+# Install and load packages
+
+```{r}
+# Install packages
+if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages('tidyverse')
+if ("dplyr" %in% rownames(installed.packages()) == 'FALSE') install.packages('dplyr')
+if ("gridExtra" %in% rownames(installed.packages()) == 'FALSE') install.packages('gridExtra')
+if ("lubridate" %in% rownames(installed.packages()) == 'FALSE') install.packages('lubridate')
+if ("respR" %in% rownames(installed.packages()) == 'FALSE') install.packages('respR')
+
+# Load packages
+library(dplyr)
+library(tidyverse)
+library(gridExtra)
+library(lubridate)
+library(respR)
+```
+
+If respR is not available for your version of R...
+
+### Install RTools
+
+\*if it hasn't been already installed (otherwise, skip this step)
+
+1.  Open <https://cran.r-project.org/>
+2.  Select the necessary operating system for downloading the installer
+    (e.g., Download R for Windows)
+3.  Select `RTools`
+4.  Select the latest version of RTools
+5.  Wait for the completion of downloading
+6.  Run the installer with all the options by default (here we may need
+    to click Run anyway on the first pop-up window)
+7.  For the new versions of R (v4.0.0), add
+    PATH='\\\${RTOOLS40_HOME}\usr\bin;\${PATH}' to the .Renviron file by
+    executing this code chunk:
+
+```{r}
+# For R v4.0.0 and newer, add RTools to PATH
+if (grepl("^4\\.0\\.", R.version$version.string)) {
+    # Get RTools40 home directory
+    rtools_home <- Sys.getenv("RTOOLS40_HOME")
+    
+    # Add RTools40\usr\bin to PATH in .Renviron
+    writeLines(paste0("PATH='", rtools_home, "\\usr\\bin;", Sys.getenv("PATH"), "'"), con = "~/.Renviron")
+}
+```
+
+::: callout-note
+You should only have to set the RTools path once.
+:::
+
+### Use devtools to install `respR`
+
+This install is not from CRAN, rather from the [`respR` github
+repository](https://github.com/januarharianto/respR)
+
+```{r}
+if ("devtools" %in% rownames(installed.packages()) == 'FALSE') install.packages('devtools')
+
+# If package `respR` is not available for your r version download the package from github
+devtools::install_github("januarharianto/respR")
+```
+
+::: callout-note
+You should only have to install respR from devtools once.
+:::
+
+# Pull in metadata & data
+
+Read in the metadata
+
+```{r}
+nem_metadata <- read_csv("../metadata/nem_metadata.csv")
+resp_log <-  read_csv("../metadata/resp_log.csv")
+```
+
+Join metadata & log The resulting merged metadata files should have 66
+rows (11 rows added for the 11 `blanks` in the respirometry runs)
+
+```{r}
+# rename the 'Spec_ID' column to 'id' to match the metadata and log dataframes
+nem_metadata <- nem_metadata %>% 
+  rename(id=Spec_ID)  
+
+# merge the metadata and log by the 'id'
+merged_metadata <- right_join(nem_metadata, resp_log, by = "id")
+
+```
+
+Read in all the respirometry data from `.csv` files
+
+```{r}
+
+# Directory containing the CSV files
+data_path <- "data"
+
+# Get a list of all file's paths in the folder
+all_files <- list.files(data_path, full.names = TRUE)
+
+# Read in all CSV files, adding a run column 
+all_data <- map2_df(all_files, seq_along(all_files), ~ read_csv(.x, skip = 1, show_col_types = FALSE) %>% # skips the first row
+                                     slice(-c(n() - 1, n())) %>% #removes the last two rows
+                                     mutate(filename = basename(.x),
+                                            run = .y))
+```
+
+The `run` column will be what is used to merge the respirometry data
+with the respirometry log later on in the script. Here, we make the
+`run` column a factor.
+
+```{r}
+# Make each run a factor (not numeric) 
+all_data$run <- as.factor(all_data$run)
+
+# Check that `run` is the right data type (factor)
+class(all_data$run)
+
+# Check that each run is represented
+levels(all_data$run)
+```
+
+# Put the data in the right format
+
+In order to do this we need each probe or channel to have its own oxygen
+value column, like this example data from the respR package (in which
+a,b,c,d, etc. are O2 measurements from different chambers):
+
+```{r}
+head(urchins.rd)
+```
+
+For this I'd like the names of each column to represent the run and the
+channel, like `1.1` would represent run 1, channel 1
+
+OR
+
+Should I have each one be the `id` of the anemone? the problem with that
+is there are 11 'blanks' that are all the same. Each blank matches a
+run, so it could be run.id, or even run.channel.id
+
+## Make time numeric
+
+Note that the `time.min` column above is numeric! In our dataframe,
+`delta_t` is the change in time. Make delta_t (change in time) column
+numeric.
+
+```{r}
+# Make change in time numeric (not a character string)
+all_data$delta_t <- as.numeric(all_data$delta_t)
+
+# Check that delta_t is the right data type (numeric)
+class(all_data$delta_t)
+```
+
+Now we need each probe from each run to have its own oxygen value
+column. So this is going to need some filtering and restitching of our
+data format from the PreSens software
+
+Let's just pull out the things we want to keep track of: delta_T, Value,
+Channel
+
+This is how Craig did it: \## Use `pivot wider` to make dataframes for
+each run
+
+```{r}
+# Gets a list of all the runs to filter by
+run_list <- levels(all_data$run)
+
+# Use a for loop to select the columns from each run and create a new dataframe for each
+for(i in 1:length(run_list)){
+  
+  df <- all_data %>% select(delta_t,Channel,Value, run) %>% 
+    filter(run == run_list[i])
+  
+  df <- df %>% select(delta_t, Channel, Value) %>% 
+    pivot_wider(names_from = Channel, values_from = Value)
+  
+  df$delta_t <- as.numeric(df$delta_t)
+  
+  assign(paste('run_',i,sep=''),df)
+  
+  }
+```
+
+We now have a dataframe for each respirometry run.
+
+Loop through and check that there aren't duplicated timestamps (delta_t)
+values in your run dataframes
+
+The samples should have been taken every 10 seconds, but for some reason
+they don't time up with each other (and they should...)
+
+# Inspect each run in the entire dataset
+
+```{r}
+for(i in 1:11){
+run_num <- paste0("run_", i) # 
+inspect(get(run_num), time = 1, oxygen = 2:7) # This is for the 6 probe setup
+}
+```
+
+> "There is a warning that the time data are not evenly spaced. This is
+> a common warning, and in this case can be safely ignored. It results
+> from using decimalised minutes as the time metric, which happen to be
+> numerically unevenly spaced, but are perfectly usable as the time
+> metric in respR.
+>
+> Rather than make assumptions that rows represent evenly spaced
+> datapoints, the functions in `respR` use actual time values for
+> analyses and rate calculations, and so even irregularly spaced data
+> are analysed correctly. Such warnings are for informative purposes: to
+> make the user aware of unusual data gaps, and also to remind users
+> that if they use row numbers for manual operations such as subsetting,
+> the same row width in different parts of the data may not necessarily
+> represent the same time period." - [respR closed chamber respirometry
+> vignette](https://januarharianto.github.io/respR/articles/closed.html#:~:text=There%20is%20a%20warning%20that%20the%20time%20data%20are%20not%20evenly%20spaced.%20This%20is%20a%20common%20warning%2C%20and%20in%20this%20case%20can%20be%20safely%20ignored.%20It%20results%20from%20using%20decimalised%20minutes%20as%20the%20time%20metric%2C%20which%20happen%20to%20be%20numerically%20unevenly%20spaced%2C%20but%20are%20perfectly%20usable%20as%20the%20time%20metric%20in%20respR).
+
+# Split each run into respiration and photosynthesis
+
+## Subset for respiration
+
+Subset for respiration data by filtering time delta_t \<= 30, since the
+first 30 minutes were in the dark. I also trim off the first 5 minute to
+account for acclimation to the chambers and thermal stabilization.
+
+```{r}
+# Loop through each run_i
+for (i in 1:11){
+  run_num <- paste0("run_", i)
+  resp_name <- paste0("resp_", run_num)
+  
+  # Filter the current run_i dataframe and store it as resp_run_i
+  assign(resp_name, get(run_num) %>% 
+  filter(delta_t < 30, delta_t > 5)) 
+    # time greater than 5 min less than 30 mins
+}
+```
+
+## Subset for photosynthesis
+
+The lights were turned on after 30 minutes, and the respirometry was
+ended at about a total of 60 minutes (though some runs ran longer). Here
+I trim between 35 and 60, to give 5 minutes of 'light phase'
+acclimation.
+
+```{r}
+# Loop through each run_i
+for (i in 1:11){
+  run_num <- paste0("run_", i)
+  resp_name <- paste0("phot_", run_num)
+  
+  # Filter the current run_i dataframe and store it as resp_run_i
+  assign(resp_name, get(run_num) %>% 
+  filter(delta_t > 35, delta_t < 60 ))
+  
+}
+```
+
+# Inspect individual columns
+
+> To extract rates, it is best to assign each time-oxygen column pair
+> individually as a separate inspect object.- [respR closed-chamber
+> respirometry
+> vignette](https://januarharianto.github.io/respR/articles/closed.html#:~:text=There%20is%20a%20warning%20that%20the%20time%20data%20are%20not%20evenly%20spaced.%20This%20is%20a%20common%20warning%2C%20and%20in%20this%20case%20can%20be%20safely%20ignored.%20It%20results%20from%20using%20decimalised%20minutes%20as%20the%20time%20metric%2C%20which%20happen%20to%20be%20numerically%20unevenly%20spaced%2C%20but%20are%20perfectly%20usable%20as%20the%20time%20metric%20in%20respR)
+
+## For respirometry
+
+Using a nested loop
+
+```{r}
+# Create an empty data frame to store the rates
+resp_rates <- data.frame(run = integer(), channel = factor(), resp_rate = numeric(), resp_r2 = numeric())
+
+# Loop through respirometry runs
+for (i in 1:11) {
+  # run_num will look like `resp_run_1`, 'resp_run_2', 'resp_run_3', etc.
+  run_num <- paste0("resp_run_", i)
+  
+  # Create an empty data frame to store rates for this run
+  auto_df <- data.frame(run = integer(), channel = factor(), resp_rate = numeric(), resp_r2 = numeric())
+  
+  # 2:7 is for a 6-probe setup where each run has a delta_t timestamp column in column 1 
+  # and 6 columns corresponding to the PreSens Channels (in this experiment, Channels 1-5, & 7)*skipping 6
+  for (j in 2:7) {
+    df <- get(run_num) %>%
+      select(1, j) %>%
+      drop_na()
+    
+    # use respR inspect() and save it to object `inspected`
+    inspected <- inspect(df, time = "delta_t", oxygen = 2)
+    
+    # pass object `inspected` through respR `auto_rate()`
+    auto_rated <- auto_rate(inspected)
+    
+    # Create a data frame to store the rate object information for this channel
+    auto_df_channel <- data.frame(
+      run = i,
+      channel = as.factor(colnames(get(run_num))[j]),
+      resp_rate = auto_rated$summary$rate[1],
+      resp_r2 = auto_rated$summary$rsq[1]
+    )
+    
+    # Append the rates for this channel to the main auto_df
+    auto_df <- bind_rows(auto_df, auto_df_channel)
+  }
+  
+  # Append the rates for this run to the main rates data frame
+  resp_rates <- bind_rows(resp_rates, auto_df)
+}
+ 
+```
+
+## QAQC respiration rates
+
+```{r}
+# filter for rates that are positive
+resp_badrates <- resp_rates %>% filter(resp_rate>0)
+print(resp_badrates)
+```
+
+```{r}
+# filter for r2 values that are below 0.8
+resp_badr2 <- resp_rates %>% filter(resp_r2<0.8)
+print(resp_badr2)
+```
+
+```{r}
+resp_baddies <- full_join(resp_badr2, resp_badrates)
+print(resp_baddies)
+```
+
+Inspect the 'bad data' individually
+
+### 2.3
+
+```{r}
+inspect(resp_run_2, time = 'delta_t', oxygen = '3') %>% auto_rate() 
+```
+
+Why is this different than the dataframe ... UGH WAIT is it because I
+filtered out the NAs in the dataframe, but not here ?!
+
+```{r}
+QAQC2.3 <- resp_run_2 %>% select('delta_t', '3') %>% drop_na()
+inspect(QAQC2.3, time = 'delta_t', oxygen = '3') %>%  auto_rate()
+```
+
+HUH. WHY does dropping NA values do this!?
+
+```{r}
+print(QAQC2.3)
+```
+
+```{r}
+print(resp_run_2[, c('delta_t', '3')])
+```
+
+I don't know why... but I want to use the data from the non NA dropped
+one in this case, so I'm going to replace it in the `resp_rates`
+dataframe
+
+```{r}
+new2.3 <-  inspect(resp_run_2, time = 'delta_t', oxygen = '3') %>% 
+  auto_rate()
+
+this.run <- 2
+this.channel <- 3
+new.rate <- new2.3$summary$rate[1]
+new.rsq <- new2.3$summary$rsq[1]
+
+
+# Replace value in 'rate' column based on conditions in 'run' and 'channel' columns
+resp_rates <- resp_rates %>%
+  mutate(resp_rate = case_when(
+    run == this.run & channel == this.channel ~ new.rate, TRUE ~ resp_rate  # Keep the original value if no condition is met
+  )) %>% 
+    mutate(resp_r2 = case_when(
+    run == this.run & channel == this.channel ~ new.rsq, TRUE ~ resp_r2  # Keep the original value if no condition is met
+  ))
+
+filter(resp_rates, run == this.run & channel == this.channel)
+```
+
+## For photosynthesis
+
+The following code should result in a dataframe that has one row for
+each respirometry chamber (in this dataset, 66 rows)
+
+```{r}
+# Create an empty data frame to store the rates
+phot_rates <- data.frame(run = integer(), channel = factor(), phot_rate = numeric(), phot_r2 = numeric())
+
+# Loop through respirometry runs
+for (i in 1:11) {
+  # run_num will look like `phot_run_1`, 'phot_run_2', 'phot_run_3', etc.
+  # these dataframes were made in the `subset for photosynthesis` step
+  run_num <- paste0("phot_run_", i)
+  
+  # Create an empty data frame to store rates for this run
+  auto_df <- data.frame(run = integer(), channel = factor(), phot_rate = numeric(), phot_r2 = numeric())
+  
+  # 2:7 is for a 6-probe setup where each run has a delta_t timestamp column in column 1 
+  # and 6 columns corresponding to the PreSens Channels (in this experiment, Channels 1-5, & 7)*skipping 6
+  for (j in 2:7) {
+    df <- get(run_num) %>%
+      select(1, j) %>%
+      drop_na()
+    
+    # use respR inspect() and save it to object `inspected`
+    inspected <- inspect(df, time = "delta_t", oxygen = 2)
+    
+    # pass object `inspected` through respR `auto_rate()`
+    auto_rated <- auto_rate(inspected)
+    
+    # Create a data frame to store the rate object information for this channel
+    auto_df_channel <- data.frame(
+      run = i,
+      channel = as.factor(colnames(get(run_num))[j]),
+      phot_rate = auto_rated$summary$rate[1],
+      phot_r2 = auto_rated$summary$rsq[1]
+    )
+    
+    # Append the rates for this channel to the main auto_df
+    auto_df <- bind_rows(auto_df, auto_df_channel)
+  }
+  
+  # Append the rates for this run to the main rates data frame
+  phot_rates <- bind_rows(phot_rates, auto_df)
+}
+```
+
+## QAQC photosynthesis rates
+
+```{r}
+# Look for rates that are negative
+phot_badrates <- phot_rates %>% filter(phot_rate<0)
+print(phot_badrates)
+```
+
+```{r}
+# Look for rate r2 values that are less than 0.8
+phot_badr2 <- phot_rates %>% filter(phot_r2<0.8)
+print(phot_badr2)
+```
+
+```{r}
+phot_baddies <- full_join(phot_badr2, phot_badrates)
+print(phot_baddies)
+```
+
+```{r}
+# Match the respiometery log with the rates -------------------------------
+#Read in your respirometry log - make sure that it is in teh appropiate foler
+resplog <- read.csv("logs/test_resp_log.csv")
+#ensure data classes are the same - not really necessary
+resplog$probe <- as.factor(resplog$probe)
+resplog$run <- as.factor(resplog$run)
+allratesdat$run <- as.factor(allratesdat$run)
+allratesdat$probe <- as.factor(allratesdat$probe)
+#Merge the data to one df
+animalratedat <- merge(allratesdat, resplog, by = c("probe","run"))
+animalratedat$Ploidy <- as.factor(animalratedat$Ploidy)
+animalratedat$Treatment <- as.factor(animalratedat$Treatment)
+```
+
+# 
+
+# Join the P&R rates dataframes
+
+```{r}
+allratesdat <- rbind(allratesdat, respdf)
+```
+
+# Join to metadata
+
+Load in metadata file
+
+```{r}
+metadata <- read_csv("metadata/resp-metadata.csv")
+```
+
+Each row in the metadata file relates to a run and a channel, we have to
+join the data by run and channel so that the big dataframe has a column
+for id, treatment, etc.
+
+```{r}
+metadata$probe <- as.factor(metadata$probe)
+metadata$run <- as.factor(metadata$run)
+allratesdat$run <- as.factor(allratesdat$run)
+allratesdat$probe <- as.factor(allratesdat$probe) #Merge the data to one
+df animalratedat <- merge(allratesdat, metadata, by = c("probe","run"))
+animalratedat$Ploidy <- as.factor(animalratedat$Ploidy)
+animalratedat$Treatment <- as.factor(animalratedat$Treatment)
+```
