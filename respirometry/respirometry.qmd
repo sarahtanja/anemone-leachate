@@ -155,6 +155,7 @@ class(all_data$run)
 # Check that each run is represented
 levels(all_data$run)
 ```
+
 # Pull in metadata
 
 ```{r}
@@ -198,6 +199,7 @@ class(all_data$delta_t)
 ```
 
 # Put the data in the right format
+
 In order to do this we need each probe or channel to have its own oxygen
 value column, like this example data from the respR package (in which
 a,b,c,d, etc. are O2 measurements from different chambers):
@@ -213,7 +215,9 @@ data format from the PreSens software
 Let's just pull out the things we want to keep track of: delta_T, Value,
 Channel
 
-This is how Craig did it: using a `for loop` and `pivot wider` to make dataframes for each run
+This is how Craig did it: using a `for loop` and `pivot wider` to make
+dataframes for each run
+
 ```{r}
 # Gets a list of all the runs to filter by
 run_list <- levels(all_data$run)
@@ -286,7 +290,6 @@ for (i in 1:11){
 }
 ```
 
-
 # Subset for photosynthesis
 
 The lights were turned on after 30 minutes, and the respirometry was
@@ -309,14 +312,20 @@ for (i in 1:11){
 
 # Background
 
-[calc_rate.bg - calculate background oxygen](https://januarharianto.github.io/respR/articles/closed.html#summary:~:text=calc_rate.bg%20%2D%20calculate%20background%20oxygen)
-> The presence of micro-organisms and their oxygen use may be a potential source of experimental bias, and we usually want to account for background respiration rates during experiments by conducting empty or “blank” control experiments with no specimens to quantify it.
-
+[calc_rate.bg - calculate background
+oxygen](https://januarharianto.github.io/respR/articles/closed.html#summary:~:text=calc_rate.bg%20%2D%20calculate%20background%20oxygen)
+\> The presence of micro-organisms and their oxygen use may be a
+potential source of experimental bias, and we usually want to account
+for background respiration rates during experiments by conducting empty
+or “blank” control experiments with no specimens to quantify it.
 
 ## Respiration background
-Lets calculate the background for each run in the oxygen consumption portion of the respirometry test
+
+Lets calculate the background for each run in the oxygen consumption
+portion of the respirometry test
 
 Make a dataframe of the 'blanks'
+
 ```{r}
 resp_blanks <- resp_log %>% 
   filter(id == "blank") %>% 
@@ -326,6 +335,7 @@ resp_blanks
 ```
 
 Use it to get the background for each resp_run
+
 ```{r}
 # 1
 bg_insp <- inspect(resp_run_1, time = 1, oxygen = "7")
@@ -371,7 +381,6 @@ bg_rate_resp_10 <- calc_rate.bg(bg_insp)
 bg_insp <- inspect(resp_run_11, time = 1, oxygen = "2")
 bg_rate_resp_11 <- calc_rate.bg(bg_insp)
 ```
-
 
 ## Photosynthesis background
 
@@ -567,7 +576,6 @@ phot_baddies <- full_join(phot_badr2, phot_badrates)
 print(phot_baddies)
 ```
 
-
 # Join the P&R rates dataframes
 
 ```{r}
@@ -622,7 +630,6 @@ background](https://januarharianto.github.io/respR/articles/adjust_rate.html#adj
 ```{r}
 resp_rates$bg_adj_rate <- adjust_rate(resp_rates , by = bg_resp_run_1, method = "mean")
 ```
-
 
 Our data follows the [Case 3: Mulitple specimen chambers and a single
 control](https://januarharianto.github.io/respR/articles/adjust_rate.html#case-3-multiple-specimen-chambers-and-a-single-control)
