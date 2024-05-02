@@ -113,7 +113,6 @@ You should only have to install respR from devtools once.
 
 # Pull in data
 
-
 Read in all the respirometry data from `.csv` files
 
 ```{r}
@@ -522,7 +521,6 @@ merged_metadata$channel <- as.factor(merged_metadata$channel)
 
 ```
 
-
 ```{r}
 head(merged_metadata)
 ```
@@ -535,19 +533,46 @@ for id, treatment, and wet weight
 rates_all_cols <- left_join(rates, merged_metadata)
 ```
 
-Let's trim it down to make working with this a bit easier by selecting just the columns we really care about
+Let's trim it down to make working with this a bit easier by selecting
+just the columns we really care about
 
 ```{r}
 rates_select_cols <- rates_all_cols %>% select("id", "treatment", "run", "channel", "resp_rate", "resp_r2", "phot_rate", "phot_r2", "wet_weight_(g)")
+
+head(rates_select_cols)
+
 ```
 
+# Adjust rates by blanks
+
+Following the examples detailed in the [adjust_rate: Adjusting rates for
+background](https://januarharianto.github.io/respR/articles/adjust_rate.html#adjintro)
+`respR` vignette.
+
+> ### When should adjustments be applied?
+>
+> In the `respR` workflow, `adjust_rate` should be used on rates which
+> have been determined in `calc_rate`, `calc_rate.int`, `auto_rate`, or
+> `auto_rate.int` or rate values (change in oxygen units per unit time)
+> otherwise determined from the raw data, but before they are converted
+> in `convert_rate`.
+>
+> However, **adjustment of rates is an optional step**. While it is
+> extremely important to determine and quantify background oxygen use or
+> production, many respirometry experiments find it to be negligible in
+> comparison to specimen rates because equipment is kept clean and
+> filtered or sterilised water is used, and adjustments are unnecessary
+> (e.g. [Burford et
+> al. 2019](https://januarharianto.github.io/respR/articles/refs.html#references)).
+
+Our data follows the [Case 3: Mulitple speciment chambers and a single
+control](https://januarharianto.github.io/respR/articles/adjust_rate.html#case-3-multiple-specimen-chambers-and-a-single-control)
+for each run.
+
+# Normalize by wet_weight
+
+respR vignette
 
 ```{r}
-metadata$probe <- as.factor(metadata$probe)
-metadata$run <- as.factor(metadata$run)
-allratesdat$run <- as.factor(allratesdat$run)
-allratesdat$probe <- as.factor(allratesdat$probe) #Merge the data to one
-df animalratedat <- merge(allratesdat, metadata, by = c("probe","run"))
-animalratedat$Ploidy <- as.factor(animalratedat$Ploidy)
-animalratedat$Treatment <- as.factor(animalratedat$Treatment)
+
 ```
