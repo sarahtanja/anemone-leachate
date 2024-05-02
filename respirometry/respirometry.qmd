@@ -612,7 +612,7 @@ filter(resp_rates, run == this.run & channel == this.channel)
 inspect(resp_run_6, time = 'delta_t', oxygen = '3') %>% auto_rate() 
 ```
 
-<<<<<<< HEAD
+
 ```{r}
 resp_run_6 %>%
   inspect(time = 'delta_t', oxygen = '3') %>%
@@ -858,8 +858,7 @@ resp_rates <- resp_rates %>%
 filter(resp_rates, run == this.run & channel == this.channel)
 ```
 
-=======
->>>>>>> 3a8d0a2 (-already saved changes)
+
 ## For photosynthesis
 
 The following code should result in a dataframe that has one row for
