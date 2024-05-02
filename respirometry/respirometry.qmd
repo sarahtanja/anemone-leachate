@@ -91,6 +91,16 @@ if (grepl("^4\\.0\\.", R.version$version.string)) {
 }
 ```
 
+After installation is complete, you need to perform **one more step** to
+be able to compile R packages: we put the location of the Rtools *make
+utilities* (`bash`, `make`, etc) on the `PATH`. The easiest way to do so
+is by creating a text file `.Renviron` in your Documents folder which
+contains the following line:
+
+```{r}
+write('PATH="${RTOOLS40_HOME}\\usr\\bin;${PATH}"', file = "~/.Renviron", append = TRUE)
+```
+
 ::: callout-note
 You should only have to set the RTools path once.
 :::
@@ -103,6 +113,7 @@ repository](https://github.com/januarharianto/respR)
 ```{r}
 if ("devtools" %in% rownames(installed.packages()) == 'FALSE') install.packages('devtools')
 
+library(devtools)
 # If package `respR` is not available for your r version download the package from github
 devtools::install_github("januarharianto/respR")
 ```
