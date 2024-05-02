@@ -122,27 +122,7 @@ devtools::install_github("januarharianto/respR")
 You should only have to install respR from devtools once.
 :::
 
-# Pull in metadata & data
-
-Read in the metadata
-
-```{r}
-nem_metadata <- read_csv("../metadata/nem_metadata.csv")
-resp_log <-  read_csv("../metadata/resp_log.csv")
-```
-
-Join metadata & log The resulting merged metadata files should have 66
-rows (11 rows added for the 11 `blanks` in the respirometry runs)
-
-```{r}
-# rename the 'Spec_ID' column to 'id' to match the metadata and log dataframes
-nem_metadata <- nem_metadata %>% 
-  rename(id=Spec_ID)  
-
-# merge the metadata and log by the 'id'
-merged_metadata <- right_join(nem_metadata, resp_log, by = "id")
-
-```
+# Pull in data
 
 Read in all the respirometry data from `.csv` files
 
@@ -175,27 +155,35 @@ class(all_data$run)
 # Check that each run is represented
 levels(all_data$run)
 ```
-
-# Put the data in the right format
-
-In order to do this we need each probe or channel to have its own oxygen
-value column, like this example data from the respR package (in which
-a,b,c,d, etc. are O2 measurements from different chambers):
+# Pull in metadata
 
 ```{r}
-head(urchins.rd)
+nem_metadata <- read_csv("../metadata/nem_metadata.csv")
+resp_log <-  read_csv("../metadata/resp_log.csv")
 ```
 
-For this I'd like the names of each column to represent the run and the
-channel, like `1.1` would represent run 1, channel 1
+Join metadata & log The resulting merged metadata files should have 66
+rows (11 rows added for the 11 `blanks` in the respirometry runs)
 
-OR
+```{r}
+# rename the 'Spec_ID' column to 'id' to match the metadata and log dataframes
+nem_metadata <- nem_metadata %>% 
+  rename(id=Spec_ID)  
 
-Should I have each one be the `id` of the anemone? the problem with that
-is there are 11 'blanks' that are all the same. Each blank matches a
-run, so it could be run.id, or even run.channel.id
+# merge the metadata and log by the 'id'
+merged_metadata <- right_join(nem_metadata, resp_log, by = "id")
 
-## Make time numeric
+
+# make channel a factor
+merged_metadata$channel <- as.factor(merged_metadata$channel)
+
+```
+
+```{r}
+head(merged_metadata)
+```
+
+# Make time numeric
 
 Note that the `time.min` column above is numeric! In our dataframe,
 `delta_t` is the change in time. Make delta_t (change in time) column
@@ -209,6 +197,15 @@ all_data$delta_t <- as.numeric(all_data$delta_t)
 class(all_data$delta_t)
 ```
 
+# Put the data in the right format
+In order to do this we need each probe or channel to have its own oxygen
+value column, like this example data from the respR package (in which
+a,b,c,d, etc. are O2 measurements from different chambers):
+
+```{r}
+head(urchins.rd)
+```
+
 Now we need each probe from each run to have its own oxygen value
 column. So this is going to need some filtering and restitching of our
 data format from the PreSens software
@@ -216,9 +213,7 @@ data format from the PreSens software
 Let's just pull out the things we want to keep track of: delta_T, Value,
 Channel
 
-This is how Craig did it: \## Use `pivot wider` to make dataframes for
-each run
-
+This is how Craig did it: using a `for loop` and `pivot wider` to make dataframes for each run
 ```{r}
 # Gets a list of all the runs to filter by
 run_list <- levels(all_data$run)
@@ -272,9 +267,7 @@ inspect(get(run_num), time = 1, oxygen = 2:7) # This is for the 6 probe setup
 > represent the same time period." - [respR closed chamber respirometry
 > vignette](https://januarharianto.github.io/respR/articles/closed.html#:~:text=There%20is%20a%20warning%20that%20the%20time%20data%20are%20not%20evenly%20spaced.%20This%20is%20a%20common%20warning%2C%20and%20in%20this%20case%20can%20be%20safely%20ignored.%20It%20results%20from%20using%20decimalised%20minutes%20as%20the%20time%20metric%2C%20which%20happen%20to%20be%20numerically%20unevenly%20spaced%2C%20but%20are%20perfectly%20usable%20as%20the%20time%20metric%20in%20respR).
 
-# Split each run into respiration and photosynthesis
-
-## Subset for respiration
+# Subset for respiration
 
 Subset for respiration data by filtering time delta_t \<= 30, since the
 first 30 minutes were in the dark. I also trim off the first 5 minute to
@@ -293,7 +286,8 @@ for (i in 1:11){
 }
 ```
 
-## Subset for photosynthesis
+
+# Subset for photosynthesis
 
 The lights were turned on after 30 minutes, and the respirometry was
 ended at about a total of 60 minutes (though some runs ran longer). Here
@@ -313,6 +307,74 @@ for (i in 1:11){
 }
 ```
 
+# Background
+
+[calc_rate.bg - calculate background oxygen](https://januarharianto.github.io/respR/articles/closed.html#summary:~:text=calc_rate.bg%20%2D%20calculate%20background%20oxygen)
+> The presence of micro-organisms and their oxygen use may be a potential source of experimental bias, and we usually want to account for background respiration rates during experiments by conducting empty or “blank” control experiments with no specimens to quantify it.
+
+
+## Respiration background
+Lets calculate the background for each run in the oxygen consumption portion of the respirometry test
+
+Make a dataframe of the 'blanks'
+```{r}
+resp_blanks <- resp_log %>% 
+  filter(id == "blank") %>% 
+  select(id, run, channel)
+
+resp_blanks
+```
+
+Use it to get the background for each resp_run
+```{r}
+# 1
+bg_insp <- inspect(resp_run_1, time = 1, oxygen = "7")
+bg_rate_resp_1 <- calc_rate.bg(bg_insp)
+
+# 2
+bg_insp <- inspect(resp_run_2, time = 1, oxygen = "2")
+bg_rate_resp_2 <- calc_rate.bg(bg_insp)
+
+# 3
+bg_insp <- inspect(resp_run_3, time = 1, oxygen = "4")
+bg_rate_resp_3 <- calc_rate.bg(bg_insp)
+
+# 4
+bg_insp <- inspect(resp_run_4, time = 1, oxygen = "1")
+bg_rate_resp_4 <- calc_rate.bg(bg_insp)
+
+# 5
+bg_insp <- inspect(resp_run_5, time = 1, oxygen = "3")
+bg_rate_resp_5 <- calc_rate.bg(bg_insp)
+
+# 6
+bg_insp <- inspect(resp_run_6, time = 1, oxygen = "5")
+bg_rate_resp_6 <- calc_rate.bg(bg_insp)
+
+# 7
+bg_insp <- inspect(resp_run_7, time = 1, oxygen = "7")
+bg_rate_resp_7 <- calc_rate.bg(bg_insp)
+
+# 8
+bg_insp <- inspect(resp_run_8, time = 1, oxygen = "5")
+bg_rate_resp_8 <- calc_rate.bg(bg_insp)
+
+# 9
+bg_insp <- inspect(resp_run_9, time = 1, oxygen = "4")
+bg_rate_resp_9 <- calc_rate.bg(bg_insp)
+
+# 10
+bg_insp <- inspect(resp_run_10, time = 1, oxygen = "3")
+bg_rate_resp_10 <- calc_rate.bg(bg_insp)
+
+# 11
+bg_insp <- inspect(resp_run_11, time = 1, oxygen = "2")
+bg_rate_resp_11 <- calc_rate.bg(bg_insp)
+```
+
+
+## Photosynthesis background
+
 # Inspect individual columns
 
 > To extract rates, it is best to assign each time-oxygen column pair
@@ -320,7 +382,7 @@ for (i in 1:11){
 > respirometry
 > vignette](https://januarharianto.github.io/respR/articles/closed.html#:~:text=There%20is%20a%20warning%20that%20the%20time%20data%20are%20not%20evenly%20spaced.%20This%20is%20a%20common%20warning%2C%20and%20in%20this%20case%20can%20be%20safely%20ignored.%20It%20results%20from%20using%20decimalised%20minutes%20as%20the%20time%20metric%2C%20which%20happen%20to%20be%20numerically%20unevenly%20spaced%2C%20but%20are%20perfectly%20usable%20as%20the%20time%20metric%20in%20respR)
 
-## For respirometry
+## Respirometry
 
 Using a nested loop
 
@@ -438,7 +500,7 @@ resp_rates <- resp_rates %>%
 filter(resp_rates, run == this.run & channel == this.channel)
 ```
 
-## For photosynthesis
+## Photosynthesis
 
 The following code should result in a dataframe that has one row for
 each respirometry chamber (in this dataset, 66 rows)
@@ -505,47 +567,77 @@ phot_baddies <- full_join(phot_badr2, phot_badrates)
 print(phot_baddies)
 ```
 
-```{r}
-# Match the respiometery log with the rates -------------------------------
-#Read in your respirometry log - make sure that it is in teh appropiate foler
-resplog <- read.csv("logs/test_resp_log.csv")
-#ensure data classes are the same - not really necessary
-resplog$probe <- as.factor(resplog$probe)
-resplog$run <- as.factor(resplog$run)
-allratesdat$run <- as.factor(allratesdat$run)
-allratesdat$probe <- as.factor(allratesdat$probe)
-#Merge the data to one df
-animalratedat <- merge(allratesdat, resplog, by = c("probe","run"))
-animalratedat$Ploidy <- as.factor(animalratedat$Ploidy)
-animalratedat$Treatment <- as.factor(animalratedat$Treatment)
-```
-
-# 
 
 # Join the P&R rates dataframes
 
 ```{r}
-allratesdat <- rbind(allratesdat, respdf)
+resp_rates <- left_join(resp_rates, merged_metadata)
+resp_rates <- resp_rates %>% select("id", "treatment", "run", "channel", "resp_rate", "resp_r2", "phot_rate", "phot_r2", "wet_weight_(g)")
 ```
 
-# Join to metadata
-
-Load in metadata file
-
 ```{r}
-metadata <- read_csv("metadata/resp-metadata.csv")
+rates <- left_join(resp_rates, phot_rates)
 ```
 
 Each row in the metadata file relates to a run and a channel, we have to
 join the data by run and channel so that the big dataframe has a column
-for id, treatment, etc.
+for id, treatment, and wet weight
 
 ```{r}
-metadata$probe <- as.factor(metadata$probe)
-metadata$run <- as.factor(metadata$run)
-allratesdat$run <- as.factor(allratesdat$run)
-allratesdat$probe <- as.factor(allratesdat$probe) #Merge the data to one
-df animalratedat <- merge(allratesdat, metadata, by = c("probe","run"))
-animalratedat$Ploidy <- as.factor(animalratedat$Ploidy)
-animalratedat$Treatment <- as.factor(animalratedat$Treatment)
+rates_all_cols <- left_join(rates, merged_metadata)
+```
+
+Let's trim it down to make working with this a bit easier by selecting
+just the columns we really care about
+
+```{r}
+rates_select_cols <- rates_all_cols %>% select("id", "treatment", "run", "channel", "resp_rate", "resp_r2", "phot_rate", "phot_r2", "wet_weight_(g)")
+
+head(rates_select_cols)
+
+```
+
+# Adjust rates by blanks
+
+Following the examples detailed in the [adjust_rate: Adjusting rates for
+background](https://januarharianto.github.io/respR/articles/adjust_rate.html#adjintro)
+`respR` vignette.
+
+> ### When should adjustments be applied?
+>
+> In the `respR` workflow, `adjust_rate` should be used on rates which
+> have been determined in `calc_rate`, `calc_rate.int`, `auto_rate`, or
+> `auto_rate.int` or rate values (change in oxygen units per unit time)
+> otherwise determined from the raw data, but before they are converted
+> in `convert_rate`.
+>
+> However, **adjustment of rates is an optional step**. While it is
+> extremely important to determine and quantify background oxygen use or
+> production, many respirometry experiments find it to be negligible in
+> comparison to specimen rates because equipment is kept clean and
+> filtered or sterilised water is used, and adjustments are unnecessary
+> (e.g. [Burford et
+> al. 2019](https://januarharianto.github.io/respR/articles/refs.html#references)).
+
+```{r}
+resp_rates$bg_adj_rate <- adjust_rate(resp_rates , by = bg_resp_run_1, method = "mean")
+```
+
+
+Our data follows the [Case 3: Mulitple specimen chambers and a single
+control](https://januarharianto.github.io/respR/articles/adjust_rate.html#case-3-multiple-specimen-chambers-and-a-single-control)
+for each run.
+
+# Normalize by wet_weight
+
+Using respR
+[convert_rate()](https://januarharianto.github.io/respR/reference/convert_rate.html)
+by mass
+
+respirometer effective volume:
+
+```{r}
+# Convert a single numeric rate to a mass-specific rate
+convert_rate(0.09, oxy.unit = 'mg/l', time.unit = 's',
+  output.unit = 'mg/min/kg', volume = 1.2, mass = 0.5)
 ```
