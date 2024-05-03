@@ -22,13 +22,13 @@ editor:
     wrap: 72
 ---
 
-Author Craig Norrie - cnorrie\@uw.edu Last modified: November 2022 This
-code will read in data from respirometry files that were produced using
-PreSens respirometers one file containing each probe for each run should
-exist and a master log file with the info for each animal should exist
-Templates for the log file is in the repo names
-"Resplog_Template_CSV.csv" the respirometry data files should be named
-in order. i.e. the first file should correspond to run #1
+This code will read in data from respirometry files that were produced
+using the Fibox 4 PreSens respirometer. A .csv file containing each
+probe/channel for each run should exist and a master log file with the
+info for each animal should exist.
+
+The respirometry data files should be named in order. i.e. the first
+file should correspond to run #1
 
 Familiarize yourself with the `respR` package [closed chamber
 respirometry
@@ -42,7 +42,7 @@ running it through the respR package so that the rolling rate regression
 can be calculated for each slope.
 
 The end goal is to get 66 respirometry rates and 66 photosynthesis rates
-(two rates for each respirometry chamber across 11 runs)
+(two rates for each respirometry chamber across 11 runs).
 
 # Install and load packages
 
@@ -141,21 +141,6 @@ all_data <- map2_df(all_files, seq_along(all_files), ~ read_csv(.x, skip = 1, sh
                                             run = .y))
 ```
 
-The `run` column will be what is used to merge the respirometry data
-with the respirometry log later on in the script. Here, we make the
-`run` column a factor.
-
-```{r}
-# Make each run a factor (not numeric) 
-all_data$run <- as.factor(all_data$run)
-
-# Check that `run` is the right data type (factor)
-class(all_data$run)
-
-# Check that each run is represented
-levels(all_data$run)
-```
-
 # Pull in metadata
 
 ```{r}
@@ -174,21 +159,32 @@ nem_metadata <- nem_metadata %>%
 # merge the metadata and log by the 'id'
 merged_metadata <- right_join(nem_metadata, resp_log, by = "id")
 
-
 # make channel a factor
 merged_metadata$channel <- as.factor(merged_metadata$channel)
-
 ```
 
+# Make `run` a factor
+
+The `run` column will be what is used to merge the respirometry data
+with the respirometry metadata and log later on in the script. Here, we
+make the `run` column a factor.
+
 ```{r}
-head(merged_metadata)
+# Make each run a factor (not numeric) 
+all_data$run <- as.factor(all_data$run)
+
+# Check that `run` is the right data type (factor)
+class(all_data$run)
+
+# Check that each run is represented
+levels(all_data$run)
 ```
 
 # Make time numeric
 
-Note that the `time.min` column above is numeric! In our dataframe,
-`delta_t` is the change in time. Make delta_t (change in time) column
-numeric.
+Note that the `time.min` column for use in the `respR` package should be
+numeric! In our dataframe,`delta_t` is the change in time. Here we will
+make the `delta_t` (change in time) column numeric.
 
 ```{r}
 # Make change in time numeric (not a character string)
@@ -198,7 +194,7 @@ all_data$delta_t <- as.numeric(all_data$delta_t)
 class(all_data$delta_t)
 ```
 
-# Put the data in the right format
+# Pivot wider
 
 In order to do this we need each probe or channel to have its own oxygen
 value column, like this example data from the respR package (in which
@@ -214,6 +210,11 @@ data format from the PreSens software
 
 Let's just pull out the things we want to keep track of: delta_T, Value,
 Channel
+
+```{r}
+all_data %>% select(delta_t, run, Channel, Value) %>% 
+    pivot_wider(names_from = Channel, values_from = Value)
+```
 
 This is how Craig did it: using a `for loop` and `pivot wider` to make
 dataframes for each run
@@ -246,7 +247,7 @@ values in your run dataframes
 The samples should have been taken every 10 seconds, but for some reason
 they don't time up with each other (and they should...)
 
-# Inspect each run in the entire dataset
+# Inspect each run
 
 ```{r}
 for(i in 1:11){
@@ -285,7 +286,7 @@ for (i in 1:11){
   
   # Filter the current run_i dataframe and store it as resp_run_i
   assign(resp_name, get(run_num) %>% 
-  filter(delta_t < 30, delta_t > 5)) 
+  filter(delta_t < 25, delta_t > 1)) 
     # time greater than 5 min less than 30 mins
 }
 ```
@@ -305,7 +306,7 @@ for (i in 1:11){
   
   # Filter the current run_i dataframe and store it as resp_run_i
   assign(resp_name, get(run_num) %>% 
-  filter(delta_t > 35, delta_t < 60 ))
+  filter(delta_t > 40, delta_t < 60 ))
   
 }
 ```
@@ -314,10 +315,11 @@ for (i in 1:11){
 
 [calc_rate.bg - calculate background
 oxygen](https://januarharianto.github.io/respR/articles/closed.html#summary:~:text=calc_rate.bg%20%2D%20calculate%20background%20oxygen)
-\> The presence of micro-organisms and their oxygen use may be a
-potential source of experimental bias, and we usually want to account
-for background respiration rates during experiments by conducting empty
-or “blank” control experiments with no specimens to quantify it.
+
+> The presence of micro-organisms and their oxygen use may be a
+> potential source of experimental bias, and we usually want to account
+> for background respiration rates during experiments by conducting
+> empty or “blank” control experiments with no specimens to quantify it.
 
 ## Respiration background
 
@@ -334,82 +336,170 @@ resp_blanks <- resp_log %>%
 resp_blanks
 ```
 
-Use it to get the background for each resp_run
+Use it to get the background for each resp_run and remove the blank from
+each respiration run dataset
 
 ```{r}
 # 1
+# first calculate the background rate
 bg_insp <- inspect(resp_run_1, time = 1, oxygen = "7")
 bg_rate_resp_1 <- calc_rate.bg(bg_insp)
+# then remove the background blank from the dataset
+resp_run_1 <- resp_run_1 %>%  select(-"7")
 
 # 2
 bg_insp <- inspect(resp_run_2, time = 1, oxygen = "2")
 bg_rate_resp_2 <- calc_rate.bg(bg_insp)
+resp_run_2 <- resp_run_2 %>%  select(-"2")
 
 # 3
 bg_insp <- inspect(resp_run_3, time = 1, oxygen = "4")
 bg_rate_resp_3 <- calc_rate.bg(bg_insp)
+resp_run_3 <- resp_run_3 %>%  select(-"4")
 
 # 4
 bg_insp <- inspect(resp_run_4, time = 1, oxygen = "1")
 bg_rate_resp_4 <- calc_rate.bg(bg_insp)
+resp_run_4 <- resp_run_4 %>%  select(-"1")
 
 # 5
 bg_insp <- inspect(resp_run_5, time = 1, oxygen = "3")
 bg_rate_resp_5 <- calc_rate.bg(bg_insp)
+resp_run_5 <- resp_run_5 %>%  select(-"3")
 
 # 6
 bg_insp <- inspect(resp_run_6, time = 1, oxygen = "5")
 bg_rate_resp_6 <- calc_rate.bg(bg_insp)
+resp_run_6 <- resp_run_6 %>%  select(-"5")
 
 # 7
 bg_insp <- inspect(resp_run_7, time = 1, oxygen = "7")
 bg_rate_resp_7 <- calc_rate.bg(bg_insp)
+resp_run_7 <- resp_run_7 %>%  select(-"7")
 
 # 8
 bg_insp <- inspect(resp_run_8, time = 1, oxygen = "5")
 bg_rate_resp_8 <- calc_rate.bg(bg_insp)
+resp_run_8 <- resp_run_8 %>%  select(-"5")
 
 # 9
 bg_insp <- inspect(resp_run_9, time = 1, oxygen = "4")
 bg_rate_resp_9 <- calc_rate.bg(bg_insp)
+resp_run_9 <- resp_run_9 %>%  select(-"4")
 
 # 10
 bg_insp <- inspect(resp_run_10, time = 1, oxygen = "3")
 bg_rate_resp_10 <- calc_rate.bg(bg_insp)
+resp_run_10 <- resp_run_10 %>%  select(-"3")
 
 # 11
 bg_insp <- inspect(resp_run_11, time = 1, oxygen = "2")
 bg_rate_resp_11 <- calc_rate.bg(bg_insp)
+resp_run_11 <- resp_run_11 %>%  select(-"2")
 ```
 
 ## Photosynthesis background
 
-# Inspect individual columns
+The chambers that were blanks are the same
+
+```{r}
+# 1
+# first calculate the background rate
+bg_insp <- inspect(phot_run_1, time = 1, oxygen = "7")
+bg_rate_phot_1 <- calc_rate.bg(bg_insp)
+# then remove the background blank from the dataset
+phot_run_1 <- phot_run_1 %>%  select(-"7")
+
+# 2
+bg_insp <- inspect(phot_run_2, time = 1, oxygen = "2")
+bg_rate_phot_2 <- calc_rate.bg(bg_insp)
+phot_run_2 <- phot_run_2 %>%  select(-"2")
+
+# 3
+bg_insp <- inspect(phot_run_3, time = 1, oxygen = "4")
+bg_rate_phot_3 <- calc_rate.bg(bg_insp)
+phot_run_3 <- phot_run_3 %>%  select(-"4")
+
+# 4
+bg_insp <- inspect(phot_run_4, time = 1, oxygen = "1")
+bg_rate_phot_4 <- calc_rate.bg(bg_insp)
+phot_run_4 <- phot_run_4 %>%  select(-"1")
+
+# 5
+bg_insp <- inspect(phot_run_5, time = 1, oxygen = "3")
+bg_rate_phot_5 <- calc_rate.bg(bg_insp)
+phot_run_5 <- phot_run_5 %>%  select(-"3")
+
+# 6
+bg_insp <- inspect(phot_run_6, time = 1, oxygen = "5")
+bg_rate_phot_6 <- calc_rate.bg(bg_insp)
+phot_run_6 <- phot_run_6 %>%  select(-"5")
+
+# 7
+bg_insp <- inspect(phot_run_7, time = 1, oxygen = "7")
+bg_rate_phot_7 <- calc_rate.bg(bg_insp)
+phot_run_7 <- phot_run_7 %>%  select(-"7")
+
+# 8
+bg_insp <- inspect(phot_run_8, time = 1, oxygen = "5")
+bg_rate_phot_8 <- calc_rate.bg(bg_insp)
+phot_run_8 <- phot_run_8 %>%  select(-"5")
+
+# 9
+bg_insp <- inspect(phot_run_9, time = 1, oxygen = "4")
+bg_rate_phot_9 <- calc_rate.bg(bg_insp)
+phot_run_9 <- phot_run_9 %>%  select(-"4")
+
+# 10
+bg_insp <- inspect(phot_run_10, time = 1, oxygen = "3")
+bg_rate_phot_10 <- calc_rate.bg(bg_insp)
+phot_run_10 <- phot_run_10 %>%  select(-"3")
+
+# 11
+bg_insp <- inspect(phot_run_11, time = 1, oxygen = "2")
+bg_rate_phot_11 <- calc_rate.bg(bg_insp)
+phot_run_11 <- phot_run_11 %>%  select(-"2")
+
+```
+
+# Calculate rates
+
+This section we will use nested loops to calculate the rates and
+background-adjusted rates for respiration & photosynthesis.
 
 > To extract rates, it is best to assign each time-oxygen column pair
 > individually as a separate inspect object.- [respR closed-chamber
 > respirometry
 > vignette](https://januarharianto.github.io/respR/articles/closed.html#:~:text=There%20is%20a%20warning%20that%20the%20time%20data%20are%20not%20evenly%20spaced.%20This%20is%20a%20common%20warning%2C%20and%20in%20this%20case%20can%20be%20safely%20ignored.%20It%20results%20from%20using%20decimalised%20minutes%20as%20the%20time%20metric%2C%20which%20happen%20to%20be%20numerically%20unevenly%20spaced%2C%20but%20are%20perfectly%20usable%20as%20the%20time%20metric%20in%20respR)
 
-## Respirometry
+## Respirometry 
+
+oxygen consumption!
 
 Using a nested loop
 
 ```{r}
 # Create an empty data frame to store the rates
-resp_rates <- data.frame(run = integer(), channel = factor(), resp_rate = numeric(), resp_r2 = numeric())
+resp_rates <- data.frame(run = integer(), channel = factor())
 
 # Loop through respirometry runs
 for (i in 1:11) {
   # run_num will look like `resp_run_1`, 'resp_run_2', 'resp_run_3', etc.
   run_num <- paste0("resp_run_", i)
   
-  # Create an empty data frame to store rates for this run
-  auto_df <- data.frame(run = integer(), channel = factor(), resp_rate = numeric(), resp_r2 = numeric())
+  # the background object for each run
+  blank <- paste0("bg_rate_resp_", i)
   
-  # 2:7 is for a 6-probe setup where each run has a delta_t timestamp column in column 1 
-  # and 6 columns corresponding to the PreSens Channels (in this experiment, Channels 1-5, & 7)*skipping 6
-  for (j in 2:7) {
+  # Create an empty data frame to store rates for this run
+  stored_rates <- data.frame(run = integer(), 
+                        channel = factor(), 
+                        auto_resp_rate = numeric(), 
+                        auto_resp_r2 = numeric() 
+                        #calc_resp_rate = numeric(),
+                        #calc_resp_r2 = numeric()
+  )
+  
+  for (j in 2:6) {
     df <- get(run_num) %>%
       select(1, j) %>%
       drop_na()
@@ -420,20 +510,32 @@ for (i in 1:11) {
     # pass object `inspected` through respR `auto_rate()`
     auto_rated <- auto_rate(inspected)
     
+    # pass object `inspected` through respR `calc_rate()`
+    calc_rated <- calc_rate(inspected, 5, 25)
+    
+    # calculate adjusted rate based on run background/blank
+    auto_bg_adj <- adjust_rate(auto_rated, by = get(blank), method = "mean")
+    calc_bg_adj <- adjust_rate(calc_rated, by = get(blank), method = "mean")
     # Create a data frame to store the rate object information for this channel
-    auto_df_channel <- data.frame(
+    stored_rates_channels <- data.frame(
       run = i,
       channel = as.factor(colnames(get(run_num))[j]),
-      resp_rate = auto_rated$summary$rate[1],
-      resp_r2 = auto_rated$summary$rsq[1]
+      auto_resp_rate = auto_rated$summary$rate[1],
+      auto_resp_r2 = auto_rated$summary$rsq[1],
+      #calc_resp_rate = calc_rated$summary$rate[1],
+      #calc_resp_r2 = calc_rated$summary$rsq[1],
+      resp_bg_adj.rate = auto_bg_adj$summary$rate.adjusted[1],
+      resp_bg_r2 = auto_bg_adj$summary$rsq[1]
+      #calc_bg_adj = calc_bg_adj$summary$rate.adjusted[1],
+      #calc_bg_r2 = calc_bg_adj$summary$rsq[1]
     )
     
-    # Append the rates for this channel to the main auto_df
-    auto_df <- bind_rows(auto_df, auto_df_channel)
+    # Append the rates for this channel to the stored_rates dataframe
+    stored_rates <- bind_rows(stored_rates, stored_rates_channels)
   }
   
-  # Append the rates for this run to the main rates data frame
-  resp_rates <- bind_rows(resp_rates, auto_df)
+  # Append the rates for this run to the resp_rates data frame
+  resp_rates <- bind_rows(resp_rates, stored_rates)
 }
  
 ```
@@ -442,13 +544,14 @@ for (i in 1:11) {
 
 ```{r}
 # filter for rates that are positive
-resp_badrates <- resp_rates %>% filter(resp_rate>0)
+resp_badrates <- resp_rates %>% filter(auto_resp_rate > 0 )
+
 print(resp_badrates)
 ```
 
 ```{r}
 # filter for r2 values that are below 0.8
-resp_badr2 <- resp_rates %>% filter(resp_r2<0.8)
+resp_badr2 <- resp_rates %>% filter(auto_resp_r2 < 0.8)
 print(resp_badr2)
 ```
 
@@ -611,7 +714,6 @@ filter(resp_rates, run == this.run & channel == this.channel)
 ```{r}
 inspect(resp_run_6, time = 'delta_t', oxygen = '3') %>% auto_rate() 
 ```
-
 
 ```{r}
 resp_run_6 %>%
@@ -858,11 +960,73 @@ resp_rates <- resp_rates %>%
 filter(resp_rates, run == this.run & channel == this.channel)
 ```
 
+## Photosynthesis
 
-## For photosynthesis
+oxygen production!
 
 The following code should result in a dataframe that has one row for
-each respirometry chamber (in this dataset, 66 rows)
+each respirometry chamber (in this dataset, 55 rows)
+
+```{r}
+# Create an empty data frame to store the rates
+phot_rates <- data.frame(run = integer(), channel = factor())
+
+# Loop through respirometry runs
+for (i in 1:11) {
+  # run_num will look like `resp_run_1`, 'resp_run_2', 'resp_run_3', etc.
+  run_num <- paste0("phot_run_", i)
+  
+  # the background object for each run
+  blank <- paste0("bg_rate_phot_", i)
+  
+  # Create an empty data frame to store rates for this run
+  stored_rates <- data.frame(run = integer(), 
+                        channel = factor(), 
+                        auto_phot_rate = numeric(), 
+                        auto_phot_r2 = numeric() 
+                        #calc_resp_rate = numeric(),
+                        #calc_resp_r2 = numeric()
+  )
+  
+  for (j in 2:6) {
+    df <- get(run_num) %>%
+      select(1, j) %>%
+      drop_na()
+    
+    # use respR inspect() and save it to object `inspected`
+    inspected <- inspect(df, time = "delta_t", oxygen = 2)
+    
+    # pass object `inspected` through respR `auto_rate()`
+    auto_rated <- auto_rate(inspected)
+    
+    # pass object `inspected` through respR `calc_rate()`
+    calc_rated <- calc_rate(inspected, 40, 60)
+    
+    # calculate adjusted rate based on run background/blank
+    auto_bg_adj <- adjust_rate(auto_rated, by = get(blank), method = "mean")
+    calc_bg_adj <- adjust_rate(calc_rated, by = get(blank), method = "mean")
+    # Create a data frame to store the rate object information for this channel
+    stored_rates_channels <- data.frame(
+      run = i,
+      channel = as.factor(colnames(get(run_num))[j]),
+      auto_phot_rate = auto_rated$summary$rate[1],
+      auto_phot_r2 = auto_rated$summary$rsq[1],
+      #calc_resp_rate = calc_rated$summary$rate[1],
+      #calc_resp_r2 = calc_rated$summary$rsq[1],
+      phot_bg_adj.rate = auto_bg_adj$summary$rate.adjusted[1],
+      phot_bg_r2 = auto_bg_adj$summary$rsq[1]
+      #calc_bg_adj = calc_bg_adj$summary$rate.adjusted[1],
+      #calc_bg_r2 = calc_bg_adj$summary$rsq[1]
+    )
+    
+    # Append the rates for this channel to the stored_rates dataframe
+    stored_rates <- bind_rows(stored_rates, stored_rates_channels)
+  }
+  
+  # Append the rates for this run to the resp_rates data frame
+  phot_rates <- bind_rows(phot_rates, stored_rates)
+}
+```
 
 ```{r}
 # Create an empty data frame to store the rates
@@ -1261,74 +1425,6 @@ phot_rates <- phot_rates %>%
   ))
 
 filter(phot_rates, run == this.run & channel == this.channel)
-```
-
-
-## Photosynthesis
-
-The following code should result in a dataframe that has one row for
-each respirometry chamber (in this dataset, 66 rows)
-
-```{r}
-# Create an empty data frame to store the rates
-phot_rates <- data.frame(run = integer(), channel = factor(), phot_rate = numeric(), phot_r2 = numeric())
-
-# Loop through respirometry runs
-for (i in 1:11) {
-  # run_num will look like `phot_run_1`, 'phot_run_2', 'phot_run_3', etc.
-  # these dataframes were made in the `subset for photosynthesis` step
-  run_num <- paste0("phot_run_", i)
-  
-  # Create an empty data frame to store rates for this run
-  auto_df <- data.frame(run = integer(), channel = factor(), phot_rate = numeric(), phot_r2 = numeric())
-  
-  # 2:7 is for a 6-probe setup where each run has a delta_t timestamp column in column 1 
-  # and 6 columns corresponding to the PreSens Channels (in this experiment, Channels 1-5, & 7)*skipping 6
-  for (j in 2:7) {
-    df <- get(run_num) %>%
-      select(1, j) %>%
-      drop_na()
-    
-    # use respR inspect() and save it to object `inspected`
-    inspected <- inspect(df, time = "delta_t", oxygen = 2)
-    
-    # pass object `inspected` through respR `auto_rate()`
-    auto_rated <- auto_rate(inspected)
-    
-    # Create a data frame to store the rate object information for this channel
-    auto_df_channel <- data.frame(
-      run = i,
-      channel = as.factor(colnames(get(run_num))[j]),
-      phot_rate = auto_rated$summary$rate[1],
-      phot_r2 = auto_rated$summary$rsq[1]
-    )
-    
-    # Append the rates for this channel to the main auto_df
-    auto_df <- bind_rows(auto_df, auto_df_channel)
-  }
-  
-  # Append the rates for this run to the main rates data frame
-  phot_rates <- bind_rows(phot_rates, auto_df)
-}
-```
-
-## QAQC photosynthesis rates
-
-```{r}
-# Look for rates that are negative
-phot_badrates <- phot_rates %>% filter(phot_rate<0)
-print(phot_badrates)
-```
-
-```{r}
-# Look for rate r2 values that are less than 0.8
-phot_badr2 <- phot_rates %>% filter(phot_r2<0.8)
-print(phot_badr2)
-```
-
-```{r}
-phot_baddies <- full_join(phot_badr2, phot_badrates)
-print(phot_baddies)
 ```
 
 # Join the P&R rates dataframes
