@@ -50,14 +50,14 @@ The end goal is to get 66 respirometry rates and 66 photosynthesis rates
 # Install packages
 if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages('tidyverse')
 if ("dplyr" %in% rownames(installed.packages()) == 'FALSE') install.packages('dplyr')
-if ("gridExtra" %in% rownames(installed.packages()) == 'FALSE') install.packages('gridExtra')
+if ("kableExtra" %in% rownames(installed.packages()) == 'FALSE') install.packages('kableExtra')
 if ("lubridate" %in% rownames(installed.packages()) == 'FALSE') install.packages('lubridate')
 if ("respR" %in% rownames(installed.packages()) == 'FALSE') install.packages('respR')
 
 # Load packages
 library(dplyr)
 library(tidyverse)
-library(gridExtra)
+library(kableExtra)
 library(lubridate)
 library(respR)
 ```
@@ -152,10 +152,6 @@ Join metadata & log The resulting merged metadata files should have 66
 rows (11 rows added for the 11 `blanks` in the respirometry runs)
 
 ```{r}
-# rename the 'Spec_ID' column to 'id' to match the metadata and log dataframes
-nem_metadata <- nem_metadata %>% 
-  rename(id=Spec_ID)  
-
 # merge the metadata and log by the 'id'
 merged_metadata <- right_join(nem_metadata, resp_log, by = "id")
 
@@ -462,7 +458,7 @@ phot_run_11 <- phot_run_11 %>%  select(-"2")
 
 ```
 
-# Calculate rates
+# Rates in `respR`
 
 This section we will use nested loops to calculate the rates and
 background-adjusted rates for respiration & photosynthesis.
@@ -472,7 +468,33 @@ background-adjusted rates for respiration & photosynthesis.
 > respirometry
 > vignette](https://januarharianto.github.io/respR/articles/closed.html#:~:text=There%20is%20a%20warning%20that%20the%20time%20data%20are%20not%20evenly%20spaced.%20This%20is%20a%20common%20warning%2C%20and%20in%20this%20case%20can%20be%20safely%20ignored.%20It%20results%20from%20using%20decimalised%20minutes%20as%20the%20time%20metric%2C%20which%20happen%20to%20be%20numerically%20unevenly%20spaced%2C%20but%20are%20perfectly%20usable%20as%20the%20time%20metric%20in%20respR)
 
-## Respirometry 
+## Adjust rates by blanks
+
+Follow the examples detailed in the [adjust_rate: Adjusting rates for
+background](https://januarharianto.github.io/respR/articles/adjust_rate.html#adjintro)
+`respR` vignette.
+
+> **When should adjustments be applied**?
+>
+> In the `respR` workflow, `adjust_rate` should be used on rates which
+> have been determined in `calc_rate`, `calc_rate.int`, `auto_rate`, or
+> `auto_rate.int` or rate values (change in oxygen units per unit time)
+> otherwise determined from the raw data, but before they are converted
+> in `convert_rate`.
+>
+> However, **adjustment of rates is an optional step**. While it is
+> extremely important to determine and quantify background oxygen use or
+> production, many respirometry experiments find it to be negligible in
+> comparison to specimen rates because equipment is kept clean and
+> filtered or sterilised water is used, and adjustments are unnecessary
+> (e.g. [Burford et
+> al. 2019](https://januarharianto.github.io/respR/articles/refs.html#references)).
+
+Our data follows the [Case 3: Mulitple specimen chambers and a single
+control](https://januarharianto.github.io/respR/articles/adjust_rate.html#case-3-multiple-specimen-chambers-and-a-single-control)
+for each run.
+
+## Respirometry
 
 oxygen consumption!
 
@@ -557,7 +579,14 @@ print(resp_badr2)
 
 ```{r}
 resp_baddies <- full_join(resp_badr2, resp_badrates)
-print(resp_baddies)
+
+# Print a pretty table
+resp_baddies %>%
+  select(run, channel) %>%
+  arrange(run, channel) %>% 
+  kable(caption = "Respiration Trouble", format = "html", 
+        col.names = c("Run", "Channel")) %>%
+  kable_styling(full_width = FALSE)
 ```
 
 Inspect the 'bad data' individually
@@ -568,22 +597,9 @@ Inspect the 'bad data' individually
 inspect(resp_run_2, time = 'delta_t', oxygen = '3') %>% auto_rate() 
 ```
 
-Why is this different than the dataframe ... UGH WAIT is it because I
-filtered out the NAs in the dataframe, but not here ?!
-
 ```{r}
 QAQC2.3 <- resp_run_2 %>% select('delta_t', '3') %>% drop_na()
 inspect(QAQC2.3, time = 'delta_t', oxygen = '3') %>%  auto_rate()
-```
-
-HUH. WHY does dropping NA values do this!?
-
-```{r}
-print(QAQC2.3)
-```
-
-```{r}
-print(resp_run_2[, c('delta_t', '3')])
 ```
 
 I don't know why... but I want to use the data from the non NA dropped
@@ -591,31 +607,10 @@ one in this case, so I'm going to replace it in the `resp_rates`
 dataframe
 
 ```{r}
-new2.3 <-  inspect(resp_run_2, time = 'delta_t', oxygen = '3') %>% 
-  auto_rate()
-
-this.run <- 2
-this.channel <- 3
-new.rate <- new2.3$summary$rate[1]
-new.rsq <- new2.3$summary$rsq[1]
-
-
-# Replace value in 'rate' column based on conditions in 'run' and 'channel' columns
-resp_rates <- resp_rates %>%
-  mutate(resp_rate = case_when(
-    run == this.run & channel == this.channel ~ new.rate, TRUE ~ resp_rate  # Keep the original value if no condition is met
-  )) %>% 
-    mutate(resp_r2 = case_when(
-    run == this.run & channel == this.channel ~ new.rsq, TRUE ~ resp_r2  # Keep the original value if no condition is met
-  ))
-
-filter(resp_rates, run == this.run & channel == this.channel)
-```
-
-```{r}
 new2.3 <-  resp_run_2 %>%
   inspect(time = 'delta_t', oxygen = '3') %>%
-  calc_rate(from = 25, to = 30, by = 'time')
+  calc_rate(from = 0, to = 5, by = 'time')
+
 
 this.run <- 2
 this.channel <- 3
@@ -625,14 +620,12 @@ new.rsq <- new2.3$summary$rsq[1]
 
 # Replace value in 'rate' column based on conditions in 'run' and 'channel' columns
 resp_rates <- resp_rates %>%
-  mutate(resp_rate = case_when(
-    run == this.run & channel == this.channel ~ new.rate, TRUE ~ resp_rate  # Keep the original value if no condition is met
-  )) %>% 
-    mutate(resp_r2 = case_when(
-    run == this.run & channel == this.channel ~ new.rsq, TRUE ~ resp_r2  # Keep the original value if no condition is met
-  ))
+  mutate(qaqc_rate = case_when(
+    run == this.run & channel == this.channel ~ new.rate)) %>% 
+    mutate(qaqc_r2 = case_when(
+    run == this.run & channel == this.channel ~ new.rsq))
 
-filter(resp_rates, run == this.run & channel == this.channel)
+filter(resp_rates, run == this.run & channel == this.channel) %>% select("run", "channel", "id", "treatment", "auto_resp_rate", "auto_resp_r2", "qaqc_rate", "qaqc_r2")
 ```
 
 ### 2.2
@@ -1427,16 +1420,15 @@ phot_rates <- phot_rates %>%
 filter(phot_rates, run == this.run & channel == this.channel)
 ```
 
-# Join the P&R rates dataframes
+# Join the P&R rates data
 
-```{r}
-resp_rates <- left_join(resp_rates, merged_metadata)
-resp_rates <- resp_rates %>% select("id", "treatment", "run", "channel", "resp_rate", "resp_r2", "phot_rate", "phot_r2", "wet_weight_(g)")
-```
+Join the respiration rates and photosynthesis rates dataframes
 
 ```{r}
 rates <- left_join(resp_rates, phot_rates)
 ```
+
+# Join the rates to metadata
 
 Each row in the metadata file relates to a run and a channel, we have to
 join the data by run and channel so that the big dataframe has a column
@@ -1450,52 +1442,48 @@ Let's trim it down to make working with this a bit easier by selecting
 just the columns we really care about
 
 ```{r}
-rates_select_cols <- rates_all_cols %>% select("id", "treatment", "run", "channel", "resp_rate", "resp_r2", "phot_rate", "phot_r2", "wet_weight_(g)")
-
-head(rates_select_cols)
-
+rates_select_cols <- rates_all_cols %>% select(
+  "id", 
+  "treatment", 
+  "run", 
+  "channel", 
+  "auto_resp_rate", 
+  "auto_resp_r2",
+  "resp_bg_adj.rate",
+  "resp_bg_r2",
+  "auto_phot_rate", 
+  "auto_phot_r2", 
+  "phot_bg_adj.rate",
+  "phot_bg_r2",
+  "wet_weight_g"
+  )
 ```
-
-# Adjust rates by blanks
-
-Following the examples detailed in the [adjust_rate: Adjusting rates for
-background](https://januarharianto.github.io/respR/articles/adjust_rate.html#adjintro)
-`respR` vignette.
-
-> ### When should adjustments be applied?
->
-> In the `respR` workflow, `adjust_rate` should be used on rates which
-> have been determined in `calc_rate`, `calc_rate.int`, `auto_rate`, or
-> `auto_rate.int` or rate values (change in oxygen units per unit time)
-> otherwise determined from the raw data, but before they are converted
-> in `convert_rate`.
->
-> However, **adjustment of rates is an optional step**. While it is
-> extremely important to determine and quantify background oxygen use or
-> production, many respirometry experiments find it to be negligible in
-> comparison to specimen rates because equipment is kept clean and
-> filtered or sterilised water is used, and adjustments are unnecessary
-> (e.g. [Burford et
-> al. 2019](https://januarharianto.github.io/respR/articles/refs.html#references)).
 
 ```{r}
-resp_rates$bg_adj_rate <- adjust_rate(resp_rates , by = bg_resp_run_1, method = "mean")
+head(rates_select_cols)
 ```
 
-Our data follows the [Case 3: Mulitple specimen chambers and a single
-control](https://januarharianto.github.io/respR/articles/adjust_rate.html#case-3-multiple-specimen-chambers-and-a-single-control)
-for each run.
-
 # Normalize by wet_weight
+
+```{r}
+rates_select_cols$wet_weight_kg <- rates_select_cols$wet_weight_g*0.001
+```
 
 Using respR
 [convert_rate()](https://januarharianto.github.io/respR/reference/convert_rate.html)
 by mass
 
-respirometer effective volume:
+The oxygen units are in ppm (mg/L)
+
+The time units are in min
+
+respirometer effective volume: 317mL = 0.317L
 
 ```{r}
+
 # Convert a single numeric rate to a mass-specific rate
-convert_rate(0.09, oxy.unit = 'mg/l', time.unit = 's',
+cr <- convert_rate(-0.09, oxy.unit = 'mg/l', time.unit = 'mins',
   output.unit = 'mg/min/kg', volume = 1.2, mass = 0.5)
+
+summary(cr)
 ```

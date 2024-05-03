@@ -1,4 +1,4 @@
-Date,Spec_ID ,Treatment ,RLC_start,RLC_end,RLC,Respirometry,wet_weight_(g),whole_anemone,note
+Date,id,treatment ,RLC_start,RLC_end,RLC,Respirometry,wet_weight_g,whole_anemone,note
 26Apr2024,Control_1,Control,474,486,complete,complete,0.84,yes,healthy
 26Apr2024,Control_2,Control,487,499,complete,complete,0.58,yes,healthy
 26Apr2024,Control_3,Control,500,512,complete,complete,3.61,yes,healthy
