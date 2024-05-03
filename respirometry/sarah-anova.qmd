@@ -1,0 +1,105 @@
+```{r}
+# Install packages
+if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages('tidyverse')
+if ("dplyr" %in% rownames(installed.packages()) == 'FALSE') install.packages('dplyr')
+if ("kableExtra" %in% rownames(installed.packages()) == 'FALSE') install.packages('kableExtra')
+if ("car" %in% rownames(installed.packages()) == 'FALSE') install.packages('car')
+
+# Load packages
+library(dplyr)
+library(tidyverse)
+library(kableExtra)
+library(car)
+```
+
+```{r}
+rates <- read_csv('rates.csv')
+```
+# Respiration
+
+## First glimpse of data
+```{r}
+ggplot(rates) +
+  aes(x = treatment, y = massnorm_resp_rate, color = treatment) +
+  geom_jitter() +
+  theme(legend.position = "none")
+```
+
+## Data normality
+```{r}
+resp_aov <-  aov(massnorm_resp_rate ~ treatment, data = rates)
+```
+
+```{r}
+par(mfrow = c(1, 2)) # combine plots
+
+# histogram
+hist(resp_aov$residuals)
+
+# QQ-plot
+qqPlot(resp_aov$residuals,
+  id = FALSE # id = FALSE to remove point identification
+)
+```
+## Boxplot
+```{r}
+ggplot(rates) +
+  aes(x = treatment, y = massnorm_resp_rate) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+## ANOVA
+```{r}
+resp_aov <- aov(massnorm_resp_rate ~ treatment,
+  data = rates
+)
+
+summary(resp_aov)
+```
+
+
+
+# Photosynthesis
+
+## First glimpse of data
+```{r}
+ggplot(rates) +
+  aes(x = treatment, y = massnorm_phot_rate, color = treatment) +
+  geom_jitter() +
+  theme(legend.position = "none")
+```
+
+## Data normality
+```{r}
+res_aov <-  aov(massnorm_phot_rate ~ treatment, data = rates)
+```
+
+```{r}
+par(mfrow = c(1, 2)) # combine plots
+
+# histogram
+hist(res_aov$residuals)
+
+# QQ-plot
+qqPlot(res_aov$residuals,
+  id = FALSE # id = FALSE to remove point identification
+)
+```
+
+## Boxplot
+```{r}
+ggplot(rates) +
+  aes(x = treatment, y = massnorm_phot_rate) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## ANOVA
+```{r}
+phot_aov <- aov(massnorm_phot_rate ~ treatment,
+  data = rates
+)
+
+summary(phot_aov)
+```
+

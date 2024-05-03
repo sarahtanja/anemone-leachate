@@ -538,7 +538,9 @@ for (i in 1:11) {
     # calculate adjusted rate based on run background/blank
     auto_bg_adj <- adjust_rate(auto_rated, by = get(blank), method = "mean")
     calc_bg_adj <- adjust_rate(calc_rated, by = get(blank), method = "mean")
-    # Create a data frame to store the rate object information for this channel
+    
+    
+    # Create a data frame to store the rate object information 
     stored_rates_channels <- data.frame(
       run = i,
       channel = as.factor(colnames(get(run_num))[j]),
@@ -1482,8 +1484,41 @@ respirometer effective volume: 317mL = 0.317L
 ```{r}
 
 # Convert a single numeric rate to a mass-specific rate
-cr <- convert_rate(-0.09, oxy.unit = 'mg/l', time.unit = 'mins',
-  output.unit = 'mg/min/kg', volume = 1.2, mass = 0.5)
+cr <- convert_rate(-0.09, oxy.unit = 'mg/L', time.unit = 'mins',
+  output.unit = 'mg/min/g', volume = 0.3, mass = 0.5)
 
 summary(cr)
+```
+
+```{r}
+rates_select_cols <- rates_select_cols %>%
+  mutate(
+    massnorm_resp_rate = convert_rate(
+      auto_resp_rate,
+      oxy.unit = 'mg/l',
+      time.unit = 'm',
+      output.unit = 'mg/min/g',
+      volume = 0.317,
+      mass = wet_weight_g
+    )$rate.output # Extracting numeric values from the convert_rate object
+  )
+
+```
+
+```{r}
+rates_select_cols <- rates_select_cols %>%
+  mutate(
+    massnorm_phot_rate = convert_rate(
+      auto_phot_rate,
+      oxy.unit = 'mg/l',
+      time.unit = 'm',
+      output.unit = 'mg/min/g',
+      volume = 0.317,
+      mass = wet_weight_g
+    )$rate.output # Extracting numeric values from the convert_rate object
+  )
+```
+
+```{r}
+write.csv(rates_select_cols, "rates.csv", row.names = FALSE)
 ```
