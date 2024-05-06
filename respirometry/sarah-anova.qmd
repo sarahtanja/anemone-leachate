@@ -2,13 +2,11 @@
 # Install packages
 if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages('tidyverse')
 if ("dplyr" %in% rownames(installed.packages()) == 'FALSE') install.packages('dplyr')
-if ("kableExtra" %in% rownames(installed.packages()) == 'FALSE') install.packages('kableExtra')
 if ("car" %in% rownames(installed.packages()) == 'FALSE') install.packages('car')
 
 # Load packages
 library(dplyr)
 library(tidyverse)
-library(kableExtra)
 library(car)
 ```
 
