@@ -1,0 +1,35 @@
+# Document for anova analysis check the git link for tutorial
+
+what is it? stat test to see if two or more pop means are different.
+
+primarily used to compare 3 or more groups
+
+# Test we are using is one-way anova specifically
+
+If the between variance is significantly larger than the within variance, the group means are declared to be different
+
+variance comparison done using the ratio (variance between/ variance within)
+
+after ratio is complete compare to fisher probability threshold (F-test)
+
+How to do (example using the penguins data set):
+
+#install.packages("palmerpenguins")
+
+#library(palmerpenguins)
+
+#library(tidyverse) \# dat \<- penguins %\>% \# select(species, flipper_length_mm)
+
+note: the pipe operator (%\>%) takes the output of the expression on its left and passes it as the first argument to the function on its right
+
+#summary(dat)
+
+Aim of ANOVA: #study wether measurements are similar accross different modalities (also called levels or treatments in the context of ANOVA) of a categorical variable #compare the impact of the different levels of a categorical variable on a quantitative variable #explain a quantitative variable based on a qualitative variable
+
+# Null and Alternative hypothesis
+
+H0: 1=2=3 (equal across the data sets)
+
+H1: AT LEAST one is different from the other two (could be any of the lot)
+
+
