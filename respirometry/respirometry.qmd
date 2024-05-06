@@ -34,15 +34,27 @@ Familiarize yourself with the `respR` package [closed chamber
 respirometry
 vignette](https://januarharianto.github.io/respR/articles/closed.html#:~:text=There%20is%20a%20warning%20that%20the%20time%20data%20are%20not%20evenly%20spaced.%20This%20is%20a%20common%20warning%2C%20and%20in%20this%20case%20can%20be%20safely%20ignored.%20It%20results%20from%20using%20decimalised%20minutes%20as%20the%20time%20metric%2C%20which%20happen%20to%20be%20numerically%20unevenly%20spaced%2C%20but%20are%20perfectly%20usable%20as%20the%20time%20metric%20in%20respR)
 
-Because the data we are working with should have a negative slope in the
-first 30 minutes representing anemone & symbiont respiration, and a
-positive slope in the last 30 minutes representing symbiont
+Because the data we are working with should have a stable negative slope
+in the first 30 minutes representing anemone & symbiont respiration, and
+a stable positive slope in the last 30 minutes representing symbiont
 photosynthesis, we need to split the data into these two slopes before
 running it through the respR package so that the rolling rate regression
 can be calculated for each slope.
 
-The end goal is to get 66 respirometry rates and 66 photosynthesis rates
-(two rates for each respirometry chamber across 11 runs).
+The end goal is to get 55 respirometry rates and 55 photosynthesis rates
+(two rates for each anemone). We also need to account for background in
+each run by removing the rate of background oxygen consumption and
+production occuring in the microbial activity of the seawater. For this
+we want to make sure to use the rate, which is relative. We don't want
+to subtract the actual oxygen reading of the blank from the experimental
+chambers, because each chamber and each probe may vary slightly.
+
+Since we are trying to capture the general background oxygen consumption
+rate and oxygen production rate of the filtered seawater, here we choose
+to average across all blanks and use 1 rate for each phase (respiration
+& photosynthesis) to background adjust all of the experimental chambers.
+There are other options for how to approach this, we could use the rate
+for each run...
 
 # Install and load packages
 
@@ -127,8 +139,7 @@ You should only have to install respR from devtools once.
 Read in all the respirometry data from `.csv` files
 
 ```{r}
-
-# Directory containing the CSV files
+# Directory containing the CSV files from the respirometer
 data_path <- "data"
 
 # Get a list of all file's paths in the folder
@@ -152,11 +163,14 @@ Join metadata & log The resulting merged metadata files should have 66
 rows (11 rows added for the 11 `blanks` in the respirometry runs)
 
 ```{r}
-# merge the metadata and log by the 'id'
+# Merge the metadata and log by the 'id'
 merged_metadata <- right_join(nem_metadata, resp_log, by = "id")
 
-# make channel a factor
+# Make channel a factor
 merged_metadata$channel <- as.factor(merged_metadata$channel)
+
+# Check that each channel is represented (1-5, & 7)
+levels(merged_metadata$channel)
 ```
 
 # Make `run` a factor
@@ -237,11 +251,8 @@ for(i in 1:length(run_list)){
 
 We now have a dataframe for each respirometry run.
 
-Loop through and check that there aren't duplicated timestamps (delta_t)
-values in your run dataframes
-
 The samples should have been taken every 10 seconds, but for some reason
-they don't time up with each other (and they should...)
+they don't time up with each other (and they should...?)
 
 # Inspect each run
 
@@ -282,8 +293,8 @@ for (i in 1:11){
   
   # Filter the current run_i dataframe and store it as resp_run_i
   assign(resp_name, get(run_num) %>% 
-  filter(delta_t < 25, delta_t > 1)) 
-    # time greater than 5 min less than 30 mins
+  filter(delta_t < 30, delta_t > 1)) 
+    # time greater than 1 min less than 30 mins *beware the bubble
 }
 ```
 
@@ -302,7 +313,7 @@ for (i in 1:11){
   
   # Filter the current run_i dataframe and store it as resp_run_i
   assign(resp_name, get(run_num) %>% 
-  filter(delta_t > 40, delta_t < 60 ))
+  filter(delta_t > 38, delta_t < 60 ))
   
 }
 ```
@@ -338,6 +349,8 @@ each respiration run dataset
 ```{r}
 # 1
 # first calculate the background rate
+# This one starts oxygen production at min 25
+resp_run_1 <- resp_run_1 %>% filter(delta_t < 25)
 bg_insp <- inspect(resp_run_1, time = 1, oxygen = "7")
 bg_rate_resp_1 <- calc_rate.bg(bg_insp)
 # then remove the background blank from the dataset
@@ -349,6 +362,8 @@ bg_rate_resp_2 <- calc_rate.bg(bg_insp)
 resp_run_2 <- resp_run_2 %>%  select(-"2")
 
 # 3
+# This one starts oxygen production at min 25
+resp_run_3 <- resp_run_3 %>% filter (delta_t < 25)
 bg_insp <- inspect(resp_run_3, time = 1, oxygen = "4")
 bg_rate_resp_3 <- calc_rate.bg(bg_insp)
 resp_run_3 <- resp_run_3 %>%  select(-"4")
@@ -389,9 +404,42 @@ bg_rate_resp_10 <- calc_rate.bg(bg_insp)
 resp_run_10 <- resp_run_10 %>%  select(-"3")
 
 # 11
+# Bad data at beginning needs to be trimmed
+resp_run_11 <- resp_run_11 %>% filter(delta_t > 6)
 bg_insp <- inspect(resp_run_11, time = 1, oxygen = "2")
 bg_rate_resp_11 <- calc_rate.bg(bg_insp)
 resp_run_11 <- resp_run_11 %>%  select(-"2")
+```
+
+### Normality check
+
+```{r}
+bg.rates <- c(
+  bg_rate_resp_1$summary$rate.bg,
+bg_rate_resp_2$summary$rate.bg,
+bg_rate_resp_3$summary$rate.bg,
+bg_rate_resp_4$summary$rate.bg,
+bg_rate_resp_5$summary$rate.bg,
+bg_rate_resp_6$summary$rate.bg,
+bg_rate_resp_7$summary$rate.bg,
+bg_rate_resp_8$summary$rate.bg,
+bg_rate_resp_9$summary$rate.bg,
+bg_rate_resp_10$summary$rate.bg,
+bg_rate_resp_11$summary$rate.bg)
+
+run <- c(1:11)
+
+resp_bg <- tibble(run, bg.rates)
+```
+
+```{r}
+hist(resp_bg$bg.rates)
+```
+
+```{r}
+if ("car" %in% rownames(installed.packages()) == 'FALSE') install.packages('car')
+library(car)
+qqPlot(resp_bg$bg.rates)
 ```
 
 ## Photosynthesis background
@@ -412,6 +460,8 @@ bg_rate_phot_2 <- calc_rate.bg(bg_insp)
 phot_run_2 <- phot_run_2 %>%  select(-"2")
 
 # 3
+# bad data at beginning
+phot_run_3 <- phot_run_3 %>% filter(delta_t > 50)
 bg_insp <- inspect(phot_run_3, time = 1, oxygen = "4")
 bg_rate_phot_3 <- calc_rate.bg(bg_insp)
 phot_run_3 <- phot_run_3 %>%  select(-"4")
@@ -437,6 +487,8 @@ bg_rate_phot_7 <- calc_rate.bg(bg_insp)
 phot_run_7 <- phot_run_7 %>%  select(-"7")
 
 # 8
+# bad data at end
+phot_run_8 <- phot_run_8 %>% filter(delta_t < 53)
 bg_insp <- inspect(phot_run_8, time = 1, oxygen = "5")
 bg_rate_phot_8 <- calc_rate.bg(bg_insp)
 phot_run_8 <- phot_run_8 %>%  select(-"5")
@@ -458,7 +510,36 @@ phot_run_11 <- phot_run_11 %>%  select(-"2")
 
 ```
 
-# Rates in `respR`
+### Normality check
+
+```{r}
+phot.bg.rates <- c(
+  bg_rate_phot_1$summary$rate.bg,
+bg_rate_phot_2$summary$rate.bg,
+bg_rate_phot_3$summary$rate.bg,
+bg_rate_phot_4$summary$rate.bg,
+bg_rate_phot_5$summary$rate.bg,
+bg_rate_phot_6$summary$rate.bg,
+bg_rate_phot_7$summary$rate.bg,
+bg_rate_phot_8$summary$rate.bg,
+bg_rate_phot_9$summary$rate.bg,
+bg_rate_phot_10$summary$rate.bg,
+bg_rate_phot_11$summary$rate.bg)
+
+run <- c(1:11)
+
+phot_bg <- tibble(run, phot.bg.rates)
+```
+
+```{r}
+hist(phot_bg$phot.bg.rates)
+```
+
+```{r}
+qqPlot(phot_bg$phot.bg.rates)
+```
+
+# Extract rates in `respR`
 
 This section we will use nested loops to calculate the rates and
 background-adjusted rates for respiration & photosynthesis.
@@ -468,7 +549,7 @@ background-adjusted rates for respiration & photosynthesis.
 > respirometry
 > vignette](https://januarharianto.github.io/respR/articles/closed.html#:~:text=There%20is%20a%20warning%20that%20the%20time%20data%20are%20not%20evenly%20spaced.%20This%20is%20a%20common%20warning%2C%20and%20in%20this%20case%20can%20be%20safely%20ignored.%20It%20results%20from%20using%20decimalised%20minutes%20as%20the%20time%20metric%2C%20which%20happen%20to%20be%20numerically%20unevenly%20spaced%2C%20but%20are%20perfectly%20usable%20as%20the%20time%20metric%20in%20respR)
 
-## Adjust rates by blanks
+## A note on adjusting rates by blanks
 
 Follow the examples detailed in the [adjust_rate: Adjusting rates for
 background](https://januarharianto.github.io/respR/articles/adjust_rate.html#adjintro)
@@ -516,9 +597,9 @@ for (i in 1:11) {
   stored_rates <- data.frame(run = integer(), 
                         channel = factor(), 
                         auto_resp_rate = numeric(), 
-                        auto_resp_r2 = numeric() 
-                        #calc_resp_rate = numeric(),
-                        #calc_resp_r2 = numeric()
+                        auto_resp_r2 = numeric(), 
+                        calc_resp_rate = numeric(),
+                        calc_resp_r2 = numeric()
   )
   
   for (j in 2:6) {
@@ -533,7 +614,7 @@ for (i in 1:11) {
     auto_rated <- auto_rate(inspected)
     
     # pass object `inspected` through respR `calc_rate()`
-    calc_rated <- calc_rate(inspected, 5, 25)
+    calc_rated <- calc_rate(inspected, 6, 25)
     
     # calculate adjusted rate based on run background/blank
     auto_bg_adj <- adjust_rate(auto_rated, by = get(blank), method = "mean")
@@ -546,12 +627,12 @@ for (i in 1:11) {
       channel = as.factor(colnames(get(run_num))[j]),
       auto_resp_rate = auto_rated$summary$rate[1],
       auto_resp_r2 = auto_rated$summary$rsq[1],
-      #calc_resp_rate = calc_rated$summary$rate[1],
-      #calc_resp_r2 = calc_rated$summary$rsq[1],
+      calc_resp_rate = calc_rated$summary$rate[1],
+      calc_resp_r2 = calc_rated$summary$rsq[1],
       resp_bg_adj.rate = auto_bg_adj$summary$rate.adjusted[1],
-      resp_bg_r2 = auto_bg_adj$summary$rsq[1]
-      #calc_bg_adj = calc_bg_adj$summary$rate.adjusted[1],
-      #calc_bg_r2 = calc_bg_adj$summary$rsq[1]
+      resp_bg_r2 = auto_bg_adj$summary$rsq[1],
+      calc_bg_adj = calc_bg_adj$summary$rate.adjusted[1],
+      calc_bg_r2 = calc_bg_adj$summary$rsq[1]
     )
     
     # Append the rates for this channel to the stored_rates dataframe
@@ -563,6 +644,30 @@ for (i in 1:11) {
 }
  
 ```
+
+### Inspect data
+
+```{r}
+hist(resp_rates$auto_resp_rate)
+```
+
+```{r}
+hist(resp_rates$resp_bg_adj.rate)
+```
+
+```{r}
+hist(resp_rates$calc_resp_rate)
+```
+
+```{r}
+hist(resp_rates$calc_bg_adj)
+```
+
+When I adjust the rates for background, it turns the rates mostly
+positive... what is producing oxygen in the dark in the chambers? This
+makes it seem like the signature in the chambers were primarily
+background, and the anemones were barely breathing... less than the
+filtered seawater!?
 
 ## QAQC respiration rates
 
@@ -596,76 +701,41 @@ Inspect the 'bad data' individually
 ### 2.3
 
 ```{r}
-inspect(resp_run_2, time = 'delta_t', oxygen = '3') %>% auto_rate() 
+resp_run_2 %>% select('delta_t', '3') %>% drop_na() %>% 
+inspect(time = 'delta_t', oxygen = '3') %>%  auto_rate()
 ```
-
-```{r}
-QAQC2.3 <- resp_run_2 %>% select('delta_t', '3') %>% drop_na()
-inspect(QAQC2.3, time = 'delta_t', oxygen = '3') %>%  auto_rate()
-```
-
-I don't know why... but I want to use the data from the non NA dropped
-one in this case, so I'm going to replace it in the `resp_rates`
-dataframe
 
 ```{r}
 new2.3 <-  resp_run_2 %>%
   inspect(time = 'delta_t', oxygen = '3') %>%
   calc_rate(from = 0, to = 5, by = 'time')
+```
 
-
+```{r}
+### ONLY CHANGE THESE VALUES ###
+new.rate <- new2.3
 this.run <- 2
 this.channel <- 3
-new.rate <- new2.3$summary$rate[1]
-new.rsq <- new2.3$summary$rsq[1]
+################################
 
-
-# Replace value in 'rate' column based on conditions in 'run' and 'channel' columns
+blank <- paste0('resp_bg$', this.run)
+new.rate <- new.rate$summary$rate[1]
+new.rsq <- new.rate$summary$rsq[1]
+new.bg <- adjust_rate(new.rate, by = blank, method = "mean")
+new.bg.r2 <- 
+  
+# Add qaqc value to new column based on conditions in 'run' and 'channel' columns
 resp_rates <- resp_rates %>%
   mutate(qaqc_rate = case_when(
     run == this.run & channel == this.channel ~ new.rate)) %>% 
-    mutate(qaqc_r2 = case_when(
+  mutate(qaqc_r2 = case_when(
+    run == this.run & channel == this.channel ~ new.rsq)) %>% 
+  mutate(qaqc_bg = case_when(
+    run == this.run & channel == this.channel ~ new.bg)) %>% 
+  mutate(qaqc_bg_r2 = case_when(
     run == this.run & channel == this.channel ~ new.rsq))
 
-filter(resp_rates, run == this.run & channel == this.channel) %>% select("run", "channel", "id", "treatment", "auto_resp_rate", "auto_resp_r2", "qaqc_rate", "qaqc_r2")
-```
-
-### 2.2
-
-```{r}
-inspect(resp_run_2, time = 'delta_t', oxygen = '2') %>% auto_rate() 
-```
-
-```{r}
-
-resp_run_2 %>%
-  inspect(time = 'delta_t', oxygen = '2') %>%
-  calc_rate(from = 25, to = 30, by = 'time')
-
-
-```
-
-```{r}
-new2.2 <-  resp_run_2 %>%
-  inspect(time = 'delta_t', oxygen = '2') %>%
-  calc_rate(from = 25, to = 30, by = 'time')
-
-this.run <- 2
-this.channel <- 2
-new.rate <- new2.2$summary$rate[1]
-new.rsq <- new2.2$summary$rsq[1]
-
-
-# Replace value in 'rate' column based on conditions in 'run' and 'channel' columns
-resp_rates <- resp_rates %>%
-  mutate(resp_rate = case_when(
-    run == this.run & channel == this.channel ~ new.rate, TRUE ~ resp_rate  # Keep the original value if no condition is met
-  )) %>% 
-    mutate(resp_r2 = case_when(
-    run == this.run & channel == this.channel ~ new.rsq, TRUE ~ resp_r2  # Keep the original value if no condition is met
-  ))
-
-filter(resp_rates, run == this.run & channel == this.channel)
+filter(resp_rates, run == this.run & channel == this.channel) %>% select("run", "channel", "id", "treatment", "auto_resp_rate", "auto_resp_r2", "qaqc_rate", "qaqc_r2", "qaqc_bg", "qaqc_bg_r2")
 ```
 
 ### 2.4
@@ -1438,6 +1508,11 @@ for id, treatment, and wet weight
 
 ```{r}
 rates_all_cols <- left_join(rates, merged_metadata)
+```
+
+### Are the blanks significantly different?
+
+```{}
 ```
 
 Let's trim it down to make working with this a bit easier by selecting
