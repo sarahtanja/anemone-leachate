@@ -1,4 +1,6 @@
-# Document for anova analysis check the git link for tutorial
+# Document for Anova analysis check the git link for the tutorial
+
+# ANOVA notes with input
 
 what is it? stat test to see if two or more pop means are different.
 
@@ -20,11 +22,13 @@ How to do (example using the penguins data set):
 
 #library(tidyverse) \# dat \<- penguins %\>% \# select(species, flipper_length_mm)
 
+#replace this with the resp or Photosynth data \#
+
 note: the pipe operator (%\>%) takes the output of the expression on its left and passes it as the first argument to the function on its right
 
 #summary(dat)
 
-Aim of ANOVA: #study wether measurements are similar accross different modalities (also called levels or treatments in the context of ANOVA) of a categorical variable #compare the impact of the different levels of a categorical variable on a quantitative variable #explain a quantitative variable based on a qualitative variable
+Aim of ANOVA: #study whether measurements are similar across different modalities (also called levels or treatments in the context of ANOVA) of a categorical variable #compare the impact of the different levels of a categorical variable on a quantitative variable #explain a quantitative variable based on a qualitative variable
 
 # Null and Alternative hypothesis
 
@@ -32,4 +36,34 @@ H0: 1=2=3 (equal across the data sets)
 
 H1: AT LEAST one is different from the other two (could be any of the lot)
 
+large sample is n \>= 30
+
+if normality is assumed, test the homogeneity of variances #variances equal, ANOVA #variances not equal, Welch ANOVA #normality not assumed, Kruskal-Wallis test
+
+## Direct implication:
+
+Anemone treatments are the variables
+
+# How to do it
+#install tidyverse, dplyr, car and load 
+
+```{r}
+if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages('tidyverse')
+if ("dplyr" %in% rownames(installed.packages()) == 'FALSE') install.packages('dplyr')
+if ("car" %in% rownames(installed.packages()) == 'FALSE') install.packages('car')
+
+library(dplyr)
+library(tidyverse)
+library(car)
+```
+
+
+```{r}
+ANOVA_RATES <- read.csv('rates.csv')
+
+```
+
+```{r}
+
+```
 
