@@ -600,10 +600,8 @@ for (i in 1:11) {
   stored_rates <- data.frame(run = integer(), 
                         channel = factor(), 
                         auto_resp_rate = numeric(), 
-                        auto_resp_r2 = numeric(), 
-                        calc_resp_rate = numeric(),
-                        calc_resp_r2 = numeric()
-  )
+                        auto_resp_r2 = numeric()
+                        )
   
   for (j in 2:6) {
     df <- get(run_num) %>%
@@ -616,13 +614,8 @@ for (i in 1:11) {
     # pass object `inspected` through respR `auto_rate()`
     auto_rated <- auto_rate(inspected)
     
-    # pass object `inspected` through respR `calc_rate()`
-    calc_rated <- calc_rate(inspected, 6, 25)
-    
     # calculate adjusted rate based on run background/blank
     auto_bg_adj <- adjust_rate(auto_rated, by = get(blank), method = "mean")
-    calc_bg_adj <- adjust_rate(calc_rated, by = get(blank), method = "mean")
-    
     
     # Create a data frame to store the rate object information 
     stored_rates_channels <- data.frame(
@@ -630,13 +623,8 @@ for (i in 1:11) {
       channel = as.factor(colnames(get(run_num))[j]),
       auto_resp_rate = auto_rated$summary$rate[1],
       auto_resp_r2 = auto_rated$summary$rsq[1],
-      calc_resp_rate = calc_rated$summary$rate[1],
-      calc_resp_r2 = calc_rated$summary$rsq[1],
-      resp_bg_adj.rate = auto_bg_adj$summary$rate.adjusted[1],
-      resp_bg_r2 = auto_bg_adj$summary$rsq[1],
-      calc_bg_adj = calc_bg_adj$summary$rate.adjusted[1],
-      calc_bg_r2 = calc_bg_adj$summary$rsq[1]
-    )
+      resp_bg_adj_rate = auto_bg_adj$summary$rate.adjusted[1]
+      )
     
     # Append the rates for this channel to the stored_rates dataframe
     stored_rates <- bind_rows(stored_rates, stored_rates_channels)
@@ -655,15 +643,7 @@ hist(resp_rates$auto_resp_rate)
 ```
 
 ```{r}
-hist(resp_rates$resp_bg_adj.rate)
-```
-
-```{r}
-hist(resp_rates$calc_resp_rate)
-```
-
-```{r}
-hist(resp_rates$calc_bg_adj)
+hist(resp_rates$resp_bg_adj_rate)
 ```
 
 When I adjust the rates for background, it turns the rates mostly
@@ -740,11 +720,11 @@ new.bg.adj.rate <- new.adj$summary$rate.adjusted[1]
 resp_rates <- resp_rates %>%
   mutate(
     qaqc_rate = ifelse(run == this.run &
-                         channel == this.channel, new.rate, qaqc_rate),
+                         channel == this.channel, new.rate, NA),
     qaqc_r2 = ifelse(run == this.run &
-                       channel == this.channel, new.rsq, qaqc_r2),
+                       channel == this.channel, new.rsq, NA),
     qaqc_bg_adj_rate = ifelse(run == this.run &
-                       channel == this.channel, new.bg.adj.rate, qaqc_bg_adj_rate)
+                       channel == this.channel, new.bg.adj.rate, NA)
   )
 
 
@@ -1096,6 +1076,46 @@ resp_rates <- resp_rates %>%
 filter(resp_rates, run == this.run & channel == this.channel) %>% select("run", "channel", "id", "treatment", "qaqc_rate", "qaqc_r2", "qaqc_bg_adj_rate")
 ```
 #### 11.4
+```{r}
+resp_run_11 %>% select('delta_t', '4') %>% drop_na() %>% 
+inspect(time = 'delta_t', oxygen = '4') %>%  auto_rate()
+```
+
+```{r}
+new11.4 <-  resp_run_11 %>%
+  inspect(time = 'delta_t', oxygen = '4') %>%
+  calc_rate(from = 25, to = 30, by = 'time')
+```
+
+```{r}
+### ONLY CHANGE THESE VALUES ###
+new.calc <- new11.4
+this.run <- 11
+this.channel <- 4
+################################
+
+new.rate <- new.calc$summary$rate[1]
+new.rsq <- new.calc$summary$rsq[1]
+
+blank <- paste0("bg_rate_resp_", this.run)
+# new background adjusted object
+new.adj <- adjust_rate(new.calc, by = get(blank), method = "mean") 
+# from the background-adjusted object, pull the rate
+new.bg.adj.rate <- new.adj$summary$rate.adjusted[1]
+  
+# Add qaqc value to new column based on conditions in 'run' and 'channel' columns
+resp_rates <- resp_rates %>%
+  mutate(
+    qaqc_rate = ifelse(run == this.run &
+                         channel == this.channel, new.rate, qaqc_rate),
+    qaqc_r2 = ifelse(run == this.run &
+                       channel == this.channel, new.rsq, qaqc_r2),
+    qaqc_bg_adj_rate = ifelse(run == this.run &
+                       channel == this.channel, new.bg.adj.rate, qaqc_bg_adj_rate)
+  )
+
+filter(resp_rates, run == this.run & channel == this.channel) %>% select("run", "channel", "id", "treatment", "qaqc_rate", "qaqc_r2", "qaqc_bg_adj_rate")
+```
 
 ## Photosynthesis
 
@@ -1120,10 +1140,8 @@ for (i in 1:11) {
   stored_rates <- data.frame(run = integer(), 
                         channel = factor(), 
                         auto_phot_rate = numeric(), 
-                        auto_phot_r2 = numeric() 
-                        #calc_resp_rate = numeric(),
-                        #calc_resp_r2 = numeric()
-  )
+                        auto_phot_r2 = numeric()
+                        )
   
   for (j in 2:6) {
     df <- get(run_num) %>%
@@ -1136,24 +1154,16 @@ for (i in 1:11) {
     # pass object `inspected` through respR `auto_rate()`
     auto_rated <- auto_rate(inspected)
     
-    # pass object `inspected` through respR `calc_rate()`
-    calc_rated <- calc_rate(inspected, 40, 60)
-    
     # calculate adjusted rate based on run background/blank
     auto_bg_adj <- adjust_rate(auto_rated, by = get(blank), method = "mean")
-    calc_bg_adj <- adjust_rate(calc_rated, by = get(blank), method = "mean")
+    
     # Create a data frame to store the rate object information for this channel
     stored_rates_channels <- data.frame(
       run = i,
       channel = as.factor(colnames(get(run_num))[j]),
       auto_phot_rate = auto_rated$summary$rate[1],
       auto_phot_r2 = auto_rated$summary$rsq[1],
-      #calc_resp_rate = calc_rated$summary$rate[1],
-      #calc_resp_r2 = calc_rated$summary$rsq[1],
-      phot_bg_adj.rate = auto_bg_adj$summary$rate.adjusted[1],
-      phot_bg_r2 = auto_bg_adj$summary$rsq[1]
-      #calc_bg_adj = calc_bg_adj$summary$rate.adjusted[1],
-      #calc_bg_r2 = calc_bg_adj$summary$rsq[1]
+      phot_bg_adj_rate = auto_bg_adj$summary$rate.adjusted[1]
     )
     
     # Append the rates for this channel to the stored_rates dataframe
@@ -1162,49 +1172,6 @@ for (i in 1:11) {
   
   # Append the rates for this run to the resp_rates data frame
   phot_rates <- bind_rows(phot_rates, stored_rates)
-}
-```
-
-```{r}
-# Create an empty data frame to store the rates
-phot_rates <- data.frame(run = integer(), channel = factor(), phot_rate = numeric(), phot_r2 = numeric())
-
-# Loop through respirometry runs
-for (i in 1:11) {
-  # run_num will look like `phot_run_1`, 'phot_run_2', 'phot_run_3', etc.
-  # these dataframes were made in the `subset for photosynthesis` step
-  run_num <- paste0("phot_run_", i)
-  
-  # Create an empty data frame to store rates for this run
-  auto_df <- data.frame(run = integer(), channel = factor(), phot_rate = numeric(), phot_r2 = numeric())
-  
-  # 2:7 is for a 6-probe setup where each run has a delta_t timestamp column in column 1 
-  # and 6 columns corresponding to the PreSens Channels (in this experiment, Channels 1-5, & 7)*skipping 6
-  for (j in 2:7) {
-    df <- get(run_num) %>%
-      select(1, j) %>%
-      drop_na()
-    
-    # use respR inspect() and save it to object `inspected`
-    inspected <- inspect(df, time = "delta_t", oxygen = 2)
-    
-    # pass object `inspected` through respR `auto_rate()`
-    auto_rated <- auto_rate(inspected)
-    
-    # Create a data frame to store the rate object information for this channel
-    auto_df_channel <- data.frame(
-      run = i,
-      channel = as.factor(colnames(get(run_num))[j]),
-      phot_rate = auto_rated$summary$rate[1],
-      phot_r2 = auto_rated$summary$rsq[1]
-    )
-    
-    # Append the rates for this channel to the main auto_df
-    auto_df <- bind_rows(auto_df, auto_df_channel)
-  }
-  
-  # Append the rates for this run to the main rates data frame
-  phot_rates <- bind_rows(phot_rates, auto_df)
 }
 ```
 
