@@ -587,15 +587,15 @@ to pick out.
 [Dynamic linear
 adjustment](https://januarharianto.github.io/respR/articles/adjust_rate.html#dynlinear:~:text=using%20different%20approaches.-,Case%207%3A%20Dynamic%20linear%20adjustment,-%E2%80%9CWe%20have%20background)
 
-> To repeat the note from the example above, estimating background rates
-> over the short durations specimen rates are often determined over may
-> not always be appropriate or accurate. This is because the signal to
-> noise ratio of shallow background oxygen use or production is often
-> low, so slopes fit over short timescales will have a lot of residual
-> variation, and be inherently less accurate. Background rates should be
-> calculated over durations long enough to provide good estimations of
-> the true rate of oxygen decline or increase. If background data are
-> noisy or trends are unclear, [dynamic
+> ... estimating background rates over the short durations specimen
+> rates are often determined over may not always be appropriate or
+> accurate. **This is because the signal to noise ratio of shallow
+> background oxygen use or production is often low**, so slopes fit over
+> short timescales will have a lot of residual variation, and be
+> inherently less accurate. Background rates should be calculated over
+> durations long enough to provide good estimations of the true rate of
+> oxygen decline or increase. If background data are noisy or trends are
+> unclear, [dynamic
 > adjustments](https://januarharianto.github.io/respR/articles/adjust_rate.html#dynlinear) may
 > be a more appropriate way to get background rate estimations and will
 > work with any two reliable sections of data of any length.
@@ -1934,33 +1934,38 @@ Let's trim it down to make working with this a bit easier by selecting
 just the columns we really care about
 
 ```{r}
-rates_select_cols <- rates_all_cols %>% select(
+rates <- rates %>% select(
   "id", 
   "treatment", 
   "run", 
   "channel", 
   "resp_rate", 
   "resp_r2",
-  "bg_rate",
-  "resp_bg_adj.rate",
-  "qaqc_"
+  "resp_bg_rate",
+  "resp_bg_adj_rate",
+  "qaqc_resp_rate",
+  "qaqc_resp_bg_adj_rate",
   "phot_rate", 
   "phot_r2", 
   "phot_bg_rate",
-  "phot_bg_adj.rate",
+  "phot_bg_adj_rate",
+  "qaqc_phot_rate",
+  "qaqc_phot_bg_adj_rate",
   "wet_weight_g"
   )
 ```
 
 ```{r}
-head(rates_select_cols)
+head(rates)
+```
+
+# Merge `QAQC` rates with  the well-calculated auto rates
+
+```{r}
+
 ```
 
 # Normalize by wet_weight
-
-```{r}
-rates_select_cols$wet_weight_kg <- rates_select_cols$wet_weight_g*0.001
-```
 
 Using respR
 [convert_rate()](https://januarharianto.github.io/respR/reference/convert_rate.html)
@@ -1968,48 +1973,41 @@ by mass
 
 The oxygen units are in ppm (mg/L)
 
-The time units are in min
+The mass units are in grams
 
-respirometer effective volume: 317mL = 0.317L
+The time units are in decimal min
 
-```{r}
-
-# Convert a single numeric rate to a mass-specific rate
-cr <- convert_rate(-0.09, oxy.unit = 'mg/L', time.unit = 'mins',
-  output.unit = 'mg/min/g', volume = 0.3, mass = 0.5)
-
-summary(cr)
-```
+The respirometer effective volume: 317mL = 0.317L
 
 ```{r}
-rates_select_cols <- rates_select_cols %>%
+rates <- rates %>%
   mutate(
     massnorm_resp_rate = convert_rate(
-      auto_resp_rate,
+      resp_rate,
       oxy.unit = 'mg/l',
       time.unit = 'm',
       output.unit = 'mg/min/g',
       volume = 0.317,
       mass = wet_weight_g
-    )$rate.output # Extracting numeric values from the convert_rate object
+    )$rate.output 
   )
 
 ```
 
 ```{r}
-rates_select_cols <- rates_select_cols %>%
+rates <- rates %>%
   mutate(
     massnorm_phot_rate = convert_rate(
-      auto_phot_rate,
+      phot_rate,
       oxy.unit = 'mg/l',
       time.unit = 'm',
       output.unit = 'mg/min/g',
       volume = 0.317,
       mass = wet_weight_g
-    )$rate.output # Extracting numeric values from the convert_rate object
+    )$rate.output
   )
 ```
 
 ```{r}
-write.csv(rates_select_cols, "rates.csv", row.names = FALSE)
+write.csv(rates, "rates.csv", row.names = FALSE)
 ```
