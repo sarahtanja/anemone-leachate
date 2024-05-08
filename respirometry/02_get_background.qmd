@@ -1,0 +1,369 @@
+---
+title: "Respirometry analysis: Part 1"
+subtitle: "Pull in data and format it for use in the `respR` package"
+author: "Sarah Tanja"
+date: "`r format(Sys.time(), '%d %B, %Y')`"  
+format:
+  html:
+    df-print: paged
+    toc: true
+    toc-location: right
+    smooth-scroll: true
+    link-external-icon: true
+    link-external-newwindow: true
+    code-fold: false
+    code-tools: true
+    code-copy: true
+    highlight-style: breeze
+    code-overflow: wrap
+    theme: minty
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+# Install and load packages
+
+```{r}
+# Install packages
+if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages('tidyverse')
+if ("dplyr" %in% rownames(installed.packages()) == 'FALSE') install.packages('dplyr')
+if ("lubridate" %in% rownames(installed.packages()) == 'FALSE') install.packages('lubridate')
+if ("respR" %in% rownames(installed.packages()) == 'FALSE') install.packages('respR')
+
+# Load packages
+library(dplyr)
+library(tidyverse)
+library(lubridate)
+library(respR)
+```
+
+# About accounting for background
+
+[calc_rate.bg - calculate background
+oxygen](https://januarharianto.github.io/respR/articles/closed.html#summary:~:text=calc_rate.bg%20%2D%20calculate%20background%20oxygen)
+
+> The presence of micro-organisms and their oxygen use may be a
+> potential source of experimental bias, and we usually want to account
+> for background respiration rates during experiments by conducting
+> empty or “blank” control experiments with no specimens to quantify it.
+
+# By run
+
+## Respiration
+
+Lets calculate the background for each run in the oxygen consumption
+portion of the respirometry test
+
+Make a dataframe of the 'blanks'
+
+```{r}
+run_blanks <- resp_log %>% 
+  filter(id == "blank") %>% 
+  select(id, run, channel)
+
+run_blanks
+```
+
+Use it to get the background for each resp_run ~~and remove the blank
+from each respiration run dataset~~
+
+```{r}
+# run 1
+# first calculate the background rate
+# This one starts oxygen production at min 25
+resp_run_1 <- resp_run_1 %>% filter(delta_t < 25)
+bg_insp <- inspect(resp_run_1, time = 1, oxygen = "7")
+bg_rate_resp_1 <- calc_rate.bg(bg_insp)
+# then remove the background blank from the dataset
+#resp_run_1 <- resp_run_1 %>%  select(-"7")
+
+# run 2
+bg_insp <- inspect(resp_run_2, time = 1, oxygen = "2")
+bg_rate_resp_2 <- calc_rate.bg(bg_insp)
+#resp_run_2 <- resp_run_2 %>%  select(-"2")
+
+# 3
+# This one starts oxygen production at min 25
+resp_run_3 <- resp_run_3 %>% filter (delta_t < 25)
+bg_insp <- inspect(resp_run_3, time = 1, oxygen = "4")
+bg_rate_resp_3 <- calc_rate.bg(bg_insp)
+#resp_run_3 <- resp_run_3 %>%  select(-"4")
+
+# 4
+bg_insp <- inspect(resp_run_4, time = 1, oxygen = "1")
+bg_rate_resp_4 <- calc_rate.bg(bg_insp)
+#resp_run_4 <- resp_run_4 %>%  select(-"1")
+
+# 5
+bg_insp <- inspect(resp_run_5, time = 1, oxygen = "3")
+bg_rate_resp_5 <- calc_rate.bg(bg_insp)
+#resp_run_5 <- resp_run_5 %>%  select(-"3")
+
+# 6
+bg_insp <- inspect(resp_run_6, time = 1, oxygen = "5")
+bg_rate_resp_6 <- calc_rate.bg(bg_insp)
+#resp_run_6 <- resp_run_6 %>%  select(-"5")
+
+# 7
+bg_insp <- inspect(resp_run_7, time = 1, oxygen = "7")
+bg_rate_resp_7 <- calc_rate.bg(bg_insp)
+#resp_run_7 <- resp_run_7 %>%  select(-"7")
+
+# 8
+bg_insp <- inspect(resp_run_8, time = 1, oxygen = "5")
+bg_rate_resp_8 <- calc_rate.bg(bg_insp)
+#resp_run_8 <- resp_run_8 %>%  select(-"5")
+
+# 9
+bg_insp <- inspect(resp_run_9, time = 1, oxygen = "4")
+bg_rate_resp_9 <- calc_rate.bg(bg_insp)
+#resp_run_9 <- resp_run_9 %>%  select(-"4")
+
+# 10
+bg_insp <- inspect(resp_run_10, time = 1, oxygen = "3")
+bg_rate_resp_10 <- calc_rate.bg(bg_insp)
+#resp_run_10 <- resp_run_10 %>%  select(-"3")
+
+# 11
+# Bad data at beginning needs to be trimmed
+resp_run_11 <- resp_run_11 %>% filter(delta_t > 6)
+bg_insp <- inspect(resp_run_11, time = 1, oxygen = "2")
+bg_rate_resp_11 <- calc_rate.bg(bg_insp)
+#resp_run_11 <- resp_run_11 %>%  select(-"2")
+```
+
+### Normality check
+
+```{r}
+bg.rates <- c(
+  bg_rate_resp_1$summary$rate.bg,
+  bg_rate_resp_2$summary$rate.bg,
+  bg_rate_resp_3$summary$rate.bg,
+  bg_rate_resp_4$summary$rate.bg,
+  bg_rate_resp_5$summary$rate.bg,
+  bg_rate_resp_6$summary$rate.bg,
+  bg_rate_resp_7$summary$rate.bg,
+  bg_rate_resp_8$summary$rate.bg,
+  bg_rate_resp_9$summary$rate.bg,
+  bg_rate_resp_10$summary$rate.bg,
+  bg_rate_resp_11$summary$rate.bg)
+
+run <- c(1:11)
+
+resp_run_bg <- tibble(run, bg.rates)
+
+print(resp_run_bg)
+```
+
+```{r}
+hist(resp_bg$bg.rates)
+```
+
+```{r}
+if ("car" %in% rownames(installed.packages()) == 'FALSE') install.packages('car')
+library(car)
+qqPlot(resp_bg$bg.rates)
+```
+
+## Photosynthesis
+
+The chambers that were blanks are the same
+
+```{r}
+# 1
+# first calculate the background rate
+bg_insp <- inspect(phot_run_1, time = 1, oxygen = "7")
+bg_rate_phot_1 <- calc_rate.bg(bg_insp)
+# then remove the background blank from the dataset
+#phot_run_1 <- phot_run_1 %>%  select(-"7")
+
+# 2
+bg_insp <- inspect(phot_run_2, time = 1, oxygen = "2")
+bg_rate_phot_2 <- calc_rate.bg(bg_insp)
+#phot_run_2 <- phot_run_2 %>%  select(-"2")
+
+# 3
+# bad data at beginning
+phot_run_3 <- phot_run_3 %>% filter(delta_t > 50)
+bg_insp <- inspect(phot_run_3, time = 1, oxygen = "4")
+bg_rate_phot_3 <- calc_rate.bg(bg_insp)
+#phot_run_3 <- phot_run_3 %>%  select(-"4")
+
+# 4
+bg_insp <- inspect(phot_run_4, time = 1, oxygen = "1")
+bg_rate_phot_4 <- calc_rate.bg(bg_insp)
+#phot_run_4 <- phot_run_4 %>%  select(-"1")
+
+# 5
+bg_insp <- inspect(phot_run_5, time = 1, oxygen = "3")
+bg_rate_phot_5 <- calc_rate.bg(bg_insp)
+#phot_run_5 <- phot_run_5 %>%  select(-"3")
+
+# 6
+bg_insp <- inspect(phot_run_6, time = 1, oxygen = "5")
+bg_rate_phot_6 <- calc_rate.bg(bg_insp)
+#phot_run_6 <- phot_run_6 %>%  select(-"5")
+
+# 7
+bg_insp <- inspect(phot_run_7, time = 1, oxygen = "7")
+bg_rate_phot_7 <- calc_rate.bg(bg_insp)
+#phot_run_7 <- phot_run_7 %>%  select(-"7")
+
+# 8
+# bad data at end
+phot_run_8 <- phot_run_8 %>% filter(delta_t < 53)
+bg_insp <- inspect(phot_run_8, time = 1, oxygen = "5")
+bg_rate_phot_8 <- calc_rate.bg(bg_insp)
+#phot_run_8 <- phot_run_8 %>%  select(-"5")
+
+# 9
+bg_insp <- inspect(phot_run_9, time = 1, oxygen = "4")
+bg_rate_phot_9 <- calc_rate.bg(bg_insp)
+#phot_run_9 <- phot_run_9 %>%  select(-"4")
+
+# 10
+bg_insp <- inspect(phot_run_10, time = 1, oxygen = "3")
+bg_rate_phot_10 <- calc_rate.bg(bg_insp)
+#phot_run_10 <- phot_run_10 %>%  select(-"3")
+
+# 11
+bg_insp <- inspect(phot_run_11, time = 1, oxygen = "2")
+bg_rate_phot_11 <- calc_rate.bg(bg_insp)
+#phot_run_11 <- phot_run_11 %>%  select(-"2")
+
+```
+
+### Normality check
+
+```{r}
+phot.bg.rates <- c(
+  bg_rate_phot_1$summary$rate.bg,
+  bg_rate_phot_2$summary$rate.bg,
+  bg_rate_phot_3$summary$rate.bg,
+  bg_rate_phot_4$summary$rate.bg,
+  bg_rate_phot_5$summary$rate.bg,
+  bg_rate_phot_6$summary$rate.bg,
+  bg_rate_phot_7$summary$rate.bg,
+  bg_rate_phot_8$summary$rate.bg,
+  bg_rate_phot_9$summary$rate.bg,
+  bg_rate_phot_10$summary$rate.bg,
+  bg_rate_phot_11$summary$rate.bg)
+
+run <- c(1:11)
+
+phot_run_bg <- tibble(run, phot.bg.rates)
+
+print(phot_run_bg)
+```
+
+```{r}
+hist(phot_bg$phot.bg.rates)
+```
+
+```{r}
+qqPlot(phot_bg$phot.bg.rates)
+```
+
+# By channel
+
+```{r}
+channel_blanks <- resp_log %>% 
+  filter(id == "blank") %>% 
+  group_by(channel) %>% 
+  summarize(run = list(run))
+
+# Print the result
+for (i in 1:nrow(channel_blanks)) {
+  cat("Channels used to blank runs (channel : run)", channel_blanks$channel[i], ":", unlist(channel_blanks$run[[i]]), "\n")
+}
+
+```
+
+## Respiration
+
+```{r}
+# channel 1
+# channel 1 was the blank for run 4
+bg_insp <- inspect(resp_run_4, time = 1, oxygen = "1")
+bg_rate_resp_channel_1 <- calc_rate.bg(bg_insp)
+
+# channel 2
+resp_channel_2 <- resp_run_2 %>% 
+  select (delta_t, "2") %>% 
+  full_join(resp_run_11 %>% select(delta_t, "2"), by = "delta_t") %>% 
+  arrange(delta_t)
+
+bg_insp <- inspect(resp_channel_2, time = 1, oxygen = 2:3)
+bg_rate_resp_channel_2 <- calc_rate.bg(bg_insp)
+
+# channel 3
+resp_channel_3 <- resp_run_5 %>% 
+  select (delta_t, "3") %>% 
+  full_join(resp_run_10 %>% select(delta_t, "3"), by = "delta_t") %>% 
+  arrange(delta_t)
+
+bg_insp <- inspect(resp_channel_3, time = 1, oxygen = 2:3)
+bg_rate_resp_channel_3 <- calc_rate.bg(bg_insp)
+
+# channel 4
+resp_channel_4 <- resp_run_3 %>% 
+  select (delta_t, "4") %>% 
+  full_join(resp_run_9 %>% select(delta_t, "4"), by = "delta_t") %>% 
+  arrange(delta_t)
+
+bg_insp <- inspect(resp_channel_4, time = 1, oxygen = 2:3)
+bg_rate_resp_channel_4 <- calc_rate.bg(bg_insp)
+
+# channel 5
+# channel 5 was the blank for runs 6 & 8
+resp_channel_5 <- resp_run_6 %>% 
+  select (delta_t, "5") %>% 
+  full_join(resp_run_8 %>% select(delta_t, "5"), by = "delta_t") %>% 
+  arrange(delta_t)
+
+bg_insp <- inspect(resp_channel_5, time = 1, oxygen = 2:3)
+bg_rate_resp_channel_5 <- calc_rate.bg(bg_insp)
+
+# channel 7
+# channel 7 was the blank for runs 1 & 7
+resp_channel_7 <- resp_run_1 %>% 
+  select (delta_t, "7") %>% 
+  full_join(resp_run_7 %>% select(delta_t, "7"), by = "delta_t") %>% 
+  arrange(delta_t)
+
+bg_insp <- inspect(resp_channel_7, time = 1, oxygen = 2:3)
+bg_rate_resp_channel_7 <- calc_rate.bg(bg_insp)
+
+```
+
+```{r}
+
+```
+
+### Normality check
+
+```{r}
+bg.rates.channel <- c(
+  bg_rate_resp_channel_1[["rate.bg.mean"]],
+  bg_rate_resp_channel_2[["rate.bg.mean"]],
+  bg_rate_resp_channel_3[["rate.bg.mean"]],
+  bg_rate_resp_channel_4[["rate.bg.mean"]],
+  bg_rate_resp_channel_5[["rate.bg.mean"]],
+  bg_rate_resp_channel_7[["rate.bg.mean"]]
+  )
+
+channel <- c(1:5, 7)
+
+bg_resp_channel <- tibble(channel, bg.rates.channel)
+
+print(bg_resp_channel)
+```
+
+```{r}
+hist(bg_resp_channel$bg.rates.channel)
+```
+
+## Photosynthesis
+
+# By mean

@@ -1,0 +1,257 @@
+---
+title: "Respirometry analysis: Part 1"
+subtitle: "Pull in data and format it for use in the `respR` package"
+author: "Sarah Tanja"
+date: "`r format(Sys.time(), '%d %B, %Y')`"  
+format:
+  html:
+    df-print: paged
+    toc: true
+    toc-location: right
+    smooth-scroll: true
+    link-external-icon: true
+    link-external-newwindow: true
+    code-fold: false
+    code-tools: true
+    code-copy: true
+    highlight-style: breeze
+    code-overflow: wrap
+    theme: minty
+editor: 
+  markdown: 
+    wrap: 72
+---
+# Install and load packages
+
+```{r}
+# Install packages
+if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages('tidyverse')
+if ("dplyr" %in% rownames(installed.packages()) == 'FALSE') install.packages('dplyr')
+if ("lubridate" %in% rownames(installed.packages()) == 'FALSE') install.packages('lubridate')
+if ("respR" %in% rownames(installed.packages()) == 'FALSE') install.packages('respR')
+
+# Load packages
+library(dplyr)
+library(tidyverse)
+library(lubridate)
+library(respR)
+```
+
+# Extract rates in `respR`
+
+This section we will use nested loops to calculate the rates and
+background-adjusted rates for respiration & photosynthesis.
+
+> To extract rates, it is best to assign each time-oxygen column pair
+> individually as a separate inspect object.- [respR closed-chamber
+> respirometry
+> vignette](https://januarharianto.github.io/respR/articles/closed.html#:~:text=There%20is%20a%20warning%20that%20the%20time%20data%20are%20not%20evenly%20spaced.%20This%20is%20a%20common%20warning%2C%20and%20in%20this%20case%20can%20be%20safely%20ignored.%20It%20results%20from%20using%20decimalised%20minutes%20as%20the%20time%20metric%2C%20which%20happen%20to%20be%20numerically%20unevenly%20spaced%2C%20but%20are%20perfectly%20usable%20as%20the%20time%20metric%20in%20respR)
+
+## A note on adjusting rates by blanks
+
+Follow the examples detailed in the [adjust_rate: Adjusting rates for
+background](https://januarharianto.github.io/respR/articles/adjust_rate.html#adjintro)
+`respR` vignette.
+
+> **When should adjustments be applied**?
+>
+> In the `respR` workflow, `adjust_rate` should be used on rates which
+> have been determined in `calc_rate`, `calc_rate.int`, `auto_rate`, or
+> `auto_rate.int` or rate values (change in oxygen units per unit time)
+> otherwise determined from the raw data, but before they are converted
+> in `convert_rate`.
+>
+> However, **adjustment of rates is an optional step**. While it is
+> extremely important to determine and quantify background oxygen use or
+> production, many respirometry experiments find it to be negligible in
+> comparison to specimen rates because equipment is kept clean and
+> filtered or sterilised water is used, and adjustments are unnecessary
+> (e.g. [Burford et
+> al. 2019](https://januarharianto.github.io/respR/articles/refs.html#references)).
+
+Our data follows the [Case 3: Mulitple specimen chambers and a single
+control](https://januarharianto.github.io/respR/articles/adjust_rate.html#case-3-multiple-specimen-chambers-and-a-single-control)
+for each run.
+
+I'm also trying out the [Concurrent
+controls](https://januarharianto.github.io/respR/articles/adjust_rate.html#concurrent:~:text=the%20same%20position.-,Case%206%3A%20Concurrent%20controls,-%E2%80%9COur%20background%20rate)
+command, as our background data is very noisy and clear trends are hard
+to pick out.
+
+[Dynamic linear
+adjustment](https://januarharianto.github.io/respR/articles/adjust_rate.html#dynlinear:~:text=using%20different%20approaches.-,Case%207%3A%20Dynamic%20linear%20adjustment,-%E2%80%9CWe%20have%20background)
+
+> ... estimating background rates over the short durations specimen
+> rates are often determined over may not always be appropriate or
+> accurate. **This is because the signal to noise ratio of shallow
+> background oxygen use or production is often low**, so slopes fit over
+> short timescales will have a lot of residual variation, and be
+> inherently less accurate. Background rates should be calculated over
+> durations long enough to provide good estimations of the true rate of
+> oxygen decline or increase. If background data are noisy or trends are
+> unclear, [dynamic
+> adjustments](https://januarharianto.github.io/respR/articles/adjust_rate.html#dynlinear) may
+> be a more appropriate way to get background rate estimations and will
+> work with any two reliable sections of data of any length.
+>
+> .
+>
+> .
+>
+> .
+>
+> This method can also however be used in experiments in which a
+> concurrent blank experiment is conducted alongside specimen
+> experiments (as described in the
+> [`concurrent`](https://januarharianto.github.io/respR/articles/adjust_rate.html#concurrent)
+> section above), but in which the background data is deemed too noisy
+> to fit reliable regressions over the short timescales that specimen
+> rates are determined. In this case, *any* two reliable segments of the
+> background data of any duration can be used to determine how the
+> background rate changes over the course of the experiment, and then
+> this used to adjust specimen rates using the `"linear"` or
+> `"exponential"` methods.
+>
+> ### Notes
+
+## Respirometry
+
+oxygen consumption!
+
+Using a nested loop
+
+```{r}
+# Initialize the resp_rates data frame with all required columns
+resp_rates <- data.frame(run = integer(),
+                         channel = factor(),
+                         resp_rate = numeric(),
+                         resp_r2 = numeric(),
+                         resp_bg_rate = numeric(),
+                         resp_bg_adj_rate = numeric())
+
+# Loop through respirometry runs
+for (i in 1:11) {
+  run_num <- paste0("resp_run_", i)
+  blank <- paste0("bg_rate_resp_", i)
+  
+  # Preallocate the stored_rates data frame
+  stored_rates <- data.frame(run = integer(), 
+                             channel = factor(), 
+                             resp_rate = numeric(), 
+                             resp_r2 = numeric(),
+                             bg_rate = numeric(),
+                             resp_bg_adj_rate = numeric(),
+                             stringsAsFactors = FALSE)
+  
+  # Loop through channels
+  stored_rates <- lapply(2:7, function(j) {
+    df <- get(run_num) %>%
+      select(1, j) %>%
+      drop_na()
+    
+    inspected <- inspect(df, time = "delta_t", oxygen = 2)
+    auto_rated <- auto_rate(inspected)
+    auto_bg_adj <- adjust_rate(auto_rated, by = get(blank))
+    
+    # Store the results for this channel
+    data.frame(run = i,
+               channel = colnames(get(run_num))[j],
+               resp_rate = auto_rated$summary$rate[1],
+               resp_r2 = auto_rated$summary$rsq[1],
+               resp_bg_rate = get(blank)$summary$rate.bg,
+               resp_bg_adj_rate = auto_bg_adj$summary$rate.adjusted[1],
+               stringsAsFactors = FALSE)
+  })
+  
+  # Append the results for this run to stored_rates
+  stored_rates <- do.call(rbind, stored_rates)
+  
+  # Append the results for this run to resp_rates
+  resp_rates <- rbind(resp_rates, stored_rates)
+}
+```
+
+## Photosynthesis
+
+oxygen production!
+
+The following code should result in a dataframe that has one row for
+each respirometry chamber (in this dataset, 55 rows of treatments &
+controls with anemone specimens, and 11 with blanks for each run)
+
+```{r}
+phot_rates <- data.frame(run = integer(),
+                         channel = factor(),
+                         phot_rate = numeric(),
+                         phot_r2 = numeric(),
+                         phot_bg_rate = numeric(),
+                         phot_bg_adj_rate = numeric())
+
+# Loop through respirometry runs
+for (i in 1:11) {
+  run_num <- paste0("phot_run_", i)
+  blank <- paste0("bg_rate_phot_", i)
+  
+  # Preallocate the stored_rates data frame
+  stored_rates <- data.frame(run = integer(), 
+                             channel = factor(), 
+                             phot_rate = numeric(), 
+                             phot_r2 = numeric(),
+                             phot_bg_rate = numeric(),
+                             phot_bg_adj_rate = numeric(),
+                             stringsAsFactors = FALSE)
+  
+  # Loop through channels
+  stored_rates <- lapply(2:7, function(j) {
+    df <- get(run_num) %>%
+      select(1, j) %>%
+      drop_na()
+    
+    inspected <- inspect(df, time = "delta_t", oxygen = 2)
+    auto_rated <- auto_rate(inspected)
+    auto_bg_adj <- adjust_rate(auto_rated, by = get(blank))
+    
+    # Store the results for this channel
+    data.frame(run = i,
+               channel = colnames(get(run_num))[j],
+               phot_rate = auto_rated$summary$rate[1],
+               phot_r2 = auto_rated$summary$rsq[1],
+               phot_bg_rate = get(blank)$summary$rate.bg,
+               phot_bg_adj_rate = auto_bg_adj$summary$rate.adjusted[1],
+               stringsAsFactors = FALSE)
+  })
+  
+  # Append the results for this run to stored_rates
+  stored_rates <- do.call(rbind, stored_rates)
+  
+  # Append the results for this run to resp_rates
+  phot_rates <- rbind(phot_rates, stored_rates)
+}
+```
+
+
+# Inspect data
+
+```{r}
+hist(resp_rates$resp_rate)
+```
+
+```{r}
+hist(resp_rates$resp_bg_adj_rate)
+```
+
+```{r}
+hist(phot_rates$phot_rate)
+```
+
+```{r}
+qqPlot(phot_rates$phot_rate)
+```
+
+```{r}
+hist(phot_rates$phot_bg_adj_rate)
+```
+
+```{r}
+qqPlot(phot_rates$phot_bg_adj_rate)
+```

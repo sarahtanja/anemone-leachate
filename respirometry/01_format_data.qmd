@@ -1,0 +1,333 @@
+---
+title: "Respirometry analysis: Part 1"
+subtitle: "Pull in data and format it for use in the `respR` package"
+author: "Sarah Tanja"
+date: "`r format(Sys.time(), '%d %B, %Y')`"  
+format:
+  html:
+    df-print: paged
+    toc: true
+    toc-location: right
+    smooth-scroll: true
+    link-external-icon: true
+    link-external-newwindow: true
+    code-fold: false
+    code-tools: true
+    code-copy: true
+    highlight-style: breeze
+    code-overflow: wrap
+    theme: minty
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+This code will read in data from respirometry files that were produced
+using the Fibox 4 PreSens respirometer. A .csv file containing each
+probe/channel for each run should exist and a master log file with the
+info for each animal should exist.
+
+The respirometry data files should be named in order. i.e. the first
+file should correspond to run #1
+
+Familiarize yourself with the `respR` package [closed chamber
+respirometry
+vignette](https://januarharianto.github.io/respR/articles/closed.html#:~:text=There%20is%20a%20warning%20that%20the%20time%20data%20are%20not%20evenly%20spaced.%20This%20is%20a%20common%20warning%2C%20and%20in%20this%20case%20can%20be%20safely%20ignored.%20It%20results%20from%20using%20decimalised%20minutes%20as%20the%20time%20metric%2C%20which%20happen%20to%20be%20numerically%20unevenly%20spaced%2C%20but%20are%20perfectly%20usable%20as%20the%20time%20metric%20in%20respR)
+
+Because the data we are working with should have a stable negative slope
+in the first 30 minutes representing anemone & symbiont respiration, and
+a stable positive slope in the last 30 minutes representing symbiont
+photosynthesis, we need to split the data into these two slopes before
+running it through the respR package so that the rolling rate regression
+can be calculated for each slope.
+
+The end goal is to get 55 respirometry rates and 55 photosynthesis rates
+(two rates for each anemone). We also need to account for background in
+each run by removing the rate of background oxygen consumption and
+production occuring in the microbial activity of the seawater. For this
+we want to make sure to use the rate, which is relative. We don't want
+to subtract the actual oxygen reading of the blank from the experimental
+chambers, because each chamber and each probe may vary slightly.
+
+Since we are trying to capture the general background oxygen consumption
+rate and oxygen production rate of the filtered seawater, here we choose
+to average across all blanks and use 1 rate for each phase (respiration
+& photosynthesis) to background adjust all of the experimental chambers.
+There are other options for how to approach this, we could use the rate
+for each run...
+
+# Install and load packages
+
+```{r}
+# Install packages
+if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages('tidyverse')
+if ("dplyr" %in% rownames(installed.packages()) == 'FALSE') install.packages('dplyr')
+if ("lubridate" %in% rownames(installed.packages()) == 'FALSE') install.packages('lubridate')
+if ("respR" %in% rownames(installed.packages()) == 'FALSE') install.packages('respR')
+
+# Load packages
+library(dplyr)
+library(tidyverse)
+library(lubridate)
+library(respR)
+```
+
+If respR is not available for your version of R...
+
+### Install RTools
+
+If it hasn't been already installed (otherwise, skip this step)...
+If you need to install `respR` with `RTools` uncomment the code in this section to run.
+
+1.  Open <https://cran.r-project.org/>
+2.  Select the necessary operating system for downloading the installer
+    (e.g., Download R for Windows)
+3.  Select `RTools`
+4.  Select the latest version of RTools
+5.  Wait for the completion of downloading
+6.  Run the installer with all the options by default (here we may need
+    to click Run anyway on the first pop-up window)
+7.  For the new versions of R (v4.0.0), add
+    PATH='\\\${RTOOLS40_HOME}\usr\bin;\${PATH}' to the .Renviron file by
+    executing this code chunk:
+
+ For R v4.0.0 and newer, add RTools to PATH,  Get RTools40 home directory, Add RTools40\usr\bin to PATH in .Renviron
+```{r}
+#if (grepl("^4\\.0\\.", R.version$version.string)) {
+#    rtools_home <- Sys.getenv("RTOOLS40_HOME")
+#    writeLines(paste0("PATH='", rtools_home, "\\usr\\bin;", Sys.getenv("PATH"), "'"), con = "~/.Renviron")
+#}
+```
+
+After installation is complete, you need to perform **one more step** to
+be able to compile R packages: we put the location of the Rtools *make
+utilities* (`bash`, `make`, etc) on the `PATH`. The easiest way to do so
+is by creating a text file `.Renviron` in your Documents folder which
+contains the following line:
+
+```{r}
+#write('PATH="${RTOOLS40_HOME}\\usr\\bin;${PATH}"', file = "~/.Renviron", append = TRUE)
+```
+
+::: callout-note
+You should only have to set the RTools path once.
+:::
+
+### Use devtools to install `respR`
+
+This install is not from CRAN, rather from the [`respR` github
+repository](https://github.com/januarharianto/respR)
+
+If package `respR` is not available for your r version download the package from github
+```{r}
+#if ("devtools" %in% rownames(installed.packages()) == 'FALSE') install.packages('devtools')
+
+#library(devtools)
+
+#devtools::install_github("januarharianto/respR")
+```
+
+::: callout-note
+You should only have to install respR from devtools once.
+:::
+
+# Pull in data
+
+Read in all the respirometry data from `.csv` files
+
+```{r message=FALSE, warning=FALSE}
+# Directory containing the CSV files from the respirometer
+data_path <- "data"
+
+# Get a list of all file's paths in the folder
+all_files <- list.files(data_path, full.names = TRUE)
+
+# Read in all CSV files, adding a run column 
+all_data <- map2_df(all_files, seq_along(all_files), ~ read_csv(.x, skip = 1, show_col_types = FALSE) %>% # skips the first row
+                                     slice(-c(n() - 1, n())) %>% #removes the last two rows
+                                     mutate(filename = basename(.x),
+                                            run = .y))
+```
+
+# Pull in metadata
+
+```{r message=FALSE}
+nem_metadata <- read_csv("../metadata/nem_metadata.csv")
+resp_log <-  read_csv("../metadata/resp_log.csv")
+```
+
+Join metadata & log The resulting merged metadata files should have 66
+rows (11 rows added for the 11 `blanks` in the respirometry runs)
+
+> check if PP(A)\_2 is run 4 or run 10, there are two PP(A)\_1 records
+> and no PP(A)\_2 record for respirometry...temporarily called PP(A)\_2
+> run 4 and PP(A)\_1 run 10
+
+```{r}
+# Merge the metadata and log by the 'id'
+merged_metadata <- full_join(nem_metadata, resp_log)
+
+# Make channel a factor
+merged_metadata$channel <- as.factor(merged_metadata$channel)
+
+# Check that each channel is represented (1-5, & 7)
+levels(merged_metadata$channel)
+```
+
+```{r}
+write.csv(merged_metadata, "output/merged_metadata.csv", row.names = FALSE )
+```
+
+
+# Make `run` a factor
+
+The `run` column will be what is used to merge the respirometry data
+with the respirometry metadata and log later on in the script. Here, we
+make the `run` column a factor.
+
+```{r}
+# Make each run a factor (not numeric) 
+all_data$run <- as.factor(all_data$run)
+
+# Check that `run` is the right data type (factor)
+class(all_data$run)
+
+# Check that each run is represented
+levels(all_data$run)
+```
+
+# Make time numeric
+
+Note that the `time.min` column for use in the `respR` package should be
+numeric! In our dataframe,`delta_t` is the change in time. Here we will
+make the `delta_t` (change in time) column numeric.
+
+```{r}
+# Make change in time numeric (not a character string)
+all_data$delta_t <- as.numeric(all_data$delta_t)
+
+# Check that delta_t is the right data type (numeric)
+class(all_data$delta_t)
+```
+
+# Pivot wider
+
+In order to do this we need each probe or channel to have its own oxygen
+value column, like this example data from the respR package (in which
+a,b,c,d, etc. are O2 measurements from different chambers):
+
+```{r}
+head(urchins.rd)
+```
+
+Now we need each probe from each run to have its own oxygen value
+column. So this is going to need some filtering and restitching of our
+data format from the PreSens software
+
+Let's just pull out the things we want to keep track of: delta_T, Value,
+Channel
+
+```{r}
+all_data %>% select(delta_t, run, Channel, Value) %>% 
+    pivot_wider(names_from = Channel, values_from = Value)
+```
+
+This is how Craig did it: using a `for loop` and `pivot wider` to make
+dataframes for each run
+
+```{r}
+# Gets a list of all the runs to filter by
+run_list <- levels(all_data$run)
+
+# Use a for loop to select the columns from each run and create a new dataframe for each
+for(i in 1:length(run_list)){
+  
+  df <- all_data %>% select(delta_t,Channel,Value, run) %>% 
+    filter(run == run_list[i])
+  
+  df <- df %>% select(delta_t, Channel, Value) %>% 
+    pivot_wider(names_from = Channel, values_from = Value)
+  
+  df$delta_t <- as.numeric(df$delta_t)
+  
+  assign(paste('run_',i,sep=''),df)
+  
+  }
+```
+
+We now have a dataframe for each respirometry run.
+
+The samples should have been taken every 10 seconds, but for some reason
+they don't time up with each other (and they should...?)
+
+# Inspect each run
+
+```{r}
+for(i in 1:11){
+run_num <- paste0("run_", i) # 
+inspect(get(run_num), time = 1, oxygen = 2:7) # This is for the 6 probe setup
+}
+```
+
+> "There is a warning that the time data are not evenly spaced. This is
+> a common warning, and in this case can be safely ignored. It results
+> from using decimalised minutes as the time metric, which happen to be
+> numerically unevenly spaced, but are perfectly usable as the time
+> metric in respR.
+>
+> Rather than make assumptions that rows represent evenly spaced
+> datapoints, the functions in `respR` use actual time values for
+> analyses and rate calculations, and so even irregularly spaced data
+> are analysed correctly. Such warnings are for informative purposes: to
+> make the user aware of unusual data gaps, and also to remind users
+> that if they use row numbers for manual operations such as subsetting,
+> the same row width in different parts of the data may not necessarily
+> represent the same time period." - [respR closed chamber respirometry
+> vignette](https://januarharianto.github.io/respR/articles/closed.html#:~:text=There%20is%20a%20warning%20that%20the%20time%20data%20are%20not%20evenly%20spaced.%20This%20is%20a%20common%20warning%2C%20and%20in%20this%20case%20can%20be%20safely%20ignored.%20It%20results%20from%20using%20decimalised%20minutes%20as%20the%20time%20metric%2C%20which%20happen%20to%20be%20numerically%20unevenly%20spaced%2C%20but%20are%20perfectly%20usable%20as%20the%20time%20metric%20in%20respR).
+
+# Subset for respiration
+
+Subset for respiration data by filtering time delta_t \<= 30, since the
+first 30 minutes were in the dark. I also trim off the first 5 minute to
+account for acclimation to the chambers and thermal stabilization.
+
+```{r}
+# Loop through each run_i
+for (i in 1:11){
+  run_num <- paste0("run_", i)
+  resp_name <- paste0("resp_", run_num)
+  
+  # Filter the current run_i dataframe and store it as resp_run_i
+  assign(resp_name, get(run_num) %>% 
+  filter(delta_t < 30, delta_t > 1)) 
+  
+  # Save the filtered dataframe as a .csv file in the output folder
+  write.csv(get(resp_name), file = paste0("output/", resp_name, ".csv"), row.names = FALSE)
+
+}
+```
+
+# Subset for photosynthesis
+
+The lights were turned on after 30 minutes, and the respirometry was
+ended at about a total of 60 minutes (though some runs ran longer). Here
+I trim between 35 and 60, to give 5 minutes of 'light phase'
+acclimation.
+
+```{r}
+# Loop through each run_i
+for (i in 1:11){
+  run_num <- paste0("run_", i)
+  phot_name <- paste0("phot_", run_num)
+  
+  # Filter the current run_i dataframe and store it as resp_run_i
+  assign(phot_name, get(run_num) %>% 
+  filter(delta_t > 35, delta_t < 60 ))
+  
+  # Save the filtered dataframe as a .csv file in the output folder
+  write.csv(get(phot_name), file = paste0("output/", phot_name, ".csv"), row.names = FALSE)
+  
+}
+```
+
+
