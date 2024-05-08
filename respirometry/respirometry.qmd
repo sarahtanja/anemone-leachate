@@ -1959,7 +1959,7 @@ rates <- rates %>% select(
 head(rates)
 ```
 
-# Merge `QAQC` rates with  the well-calculated auto rates
+# Merge `QAQC` rates with the well-calculated auto rates
 
 ```{r}
 
