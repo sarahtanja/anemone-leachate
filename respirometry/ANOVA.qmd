@@ -59,6 +59,8 @@ library(ggplot2)
 ```
 ```{r}
 install.packages("ggplot2")
+```
+```{r}
 library(ggplot2)
 ```
 
@@ -104,10 +106,8 @@ ggplot(rates) +
     y = "Respiration Rate"
   ) +
   scale_x_discrete(labels = c("Control ", "PPa 0.01", "PPa 0.1","PPa 1", "PPa 10", "PPa 100","PVC 0.01", "PVC 0.1", "PVC 1", "PVC 10", "PVC 100")) +  
-  scale_fill_manual(values = c("seashell", "coral", "coral1","coral2","coral3", "coral4","dodgerblue","dodgerblue1","dodgerblue2", "dodgerblue3","dodgerblue4"))+
-  guide(fill=guide_legend("Treatments"),
-        scale_fill_manual(values = c("seashell", "coral", "dodgerblue3"), 
-                  labels = c("Control", "PPa", "PVC")))
+  scale_fill_manual(values = c("seashell", "coral", "coral1","coral2","coral3", "coral4","dodgerblue","dodgerblue1","dodgerblue2", "dodgerblue3","dodgerblue4"))+ 
+  
 
 ```
 ## ANOVA
