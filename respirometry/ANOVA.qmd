@@ -55,15 +55,114 @@ if ("car" %in% rownames(installed.packages()) == 'FALSE') install.packages('car'
 library(dplyr)
 library(tidyverse)
 library(car)
+library(ggplot2)
+```
+```{r}
+install.packages("ggplot2")
+library(ggplot2)
 ```
 
 
 ```{r}
-ANOVA_RATES <- read.csv('rates.csv')
+rates <- read.csv('rates.csv')
 
+```
+
+#Respiration
+```{r}
+ggplot(rates) +
+  aes(x = treatment, y = massnorm_resp_rate, color = treatment) +
+  geom_jitter() +
+  theme(legend.position = "none")
+```
+
+## Data normality
+```{r}
+resp_aov <-  aov(massnorm_resp_rate ~ treatment, data = rates)
 ```
 
 ```{r}
+par(mfrow = c(1, 2)) # combine plots
+
+# histogram
+hist(resp_aov$residuals)
+
+# QQ-plot
+qqPlot(resp_aov$residuals,
+  id = FALSE # id = FALSE to remove point identification
+)
+```
+## Boxplot
+```{r}
+ggplot(rates) +
+  aes(x = treatment, y = massnorm_resp_rate, fill = treatment) +
+  geom_boxplot() +  
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(
+    title = "Concentration vs. Respiration Rate",
+    x = "Leachate concentration (mg/L)",
+    y = "Respiration Rate"
+  ) +
+  scale_x_discrete(labels = c("Control ", "PPa 0.01", "PPa 0.1","PPa 1", "PPa 10", "PPa 100","PVC 0.01", "PVC 0.1", "PVC 1", "PVC 10", "PVC 100")) +  
+  scale_fill_manual(values = c("seashell", "coral", "coral1","coral2","coral3", "coral4","dodgerblue","dodgerblue1","dodgerblue2", "dodgerblue3","dodgerblue4"))+
+  guide(fill=guide_legend("Treatments"),
+        scale_fill_manual(values = c("seashell", "coral", "dodgerblue3"), 
+                  labels = c("Control", "PPa", "PVC")))
 
 ```
+## ANOVA
+```{r}
+resp_aov <- aov(massnorm_resp_rate ~ treatment,
+  data = rates
+)
+
+summary(resp_aov)
+```
+
+
+
+# Photosynthesis
+
+## First glimpse of data
+```{r}
+ggplot(rates) +
+  aes(x = treatment, y = massnorm_phot_rate, color = treatment) +
+  geom_jitter() +
+  theme(legend.position = "none")
+```
+
+## Data normality
+```{r}
+res_aov <-  aov(massnorm_phot_rate ~ treatment, data = rates)
+```
+
+```{r}
+par(mfrow = c(1, 2)) # combine plots
+
+# histogram
+hist(res_aov$residuals)
+
+# QQ-plot
+qqPlot(res_aov$residuals,
+  id = FALSE # id = FALSE to remove point identification
+)
+```
+
+## Boxplot
+```{r}
+ggplot(rates) +
+  aes(x = treatment, y = massnorm_phot_rate) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## ANOVA
+```{r}
+phot_aov <- aov(massnorm_phot_rate ~ treatment,
+  data = rates
+)
+
+summary(phot_aov)
+```
+
 
