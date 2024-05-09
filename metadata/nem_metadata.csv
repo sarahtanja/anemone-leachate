@@ -1,56 +1,56 @@
-Date,id,treatment ,RLC_start,RLC_end,RLC,Respirometry,wet_weight_g,whole_anemone,note
-26Apr2024,Control_1,Control,474,486,complete,complete,0.84,yes,healthy
-26Apr2024,Control_2,Control,487,499,complete,complete,0.58,yes,healthy
-26Apr2024,Control_3,Control,500,512,complete,complete,3.61,yes,healthy
-26Apr2024,Control_4,Control,513,525,complete,complete,1.05,yes,healthy
-26Apr2024,Control_5,Control,526,538,complete,complete,1.49,yes,healthy
-26Apr2024,PP(A)_1,PP_A_0.01_mgL,552,564,complete,complete,0.97,yes,healthy
-26Apr2024,PP(A)_2,PP_A_0.01_mgL,565,577,complete,complete,0.48,yes,healthy
-26Apr2024,PP(A)_3,PP_A_0.01_mgL,610,622,complete,complete,1.25,yes,healthy
-26Apr2024,PP(A)_4,PP_A_0.01_mgL,623,635,complete,complete,1.10,yes,bleached
-26Apr2024,PP(A)_5,PP_A_0.01_mgL,636,648,complete,complete,1.70,yes,juicy one
-26Apr2024,PP(A)_6,PP_A_0.1_mgL,649,661,complete,complete,1.10,yes,healthy
-26Apr2024,PP(A)_7,PP_A_0.1_mgL,680,692,complete,complete,1.28,yes,healthy
-26Apr2024,PP(A)_8,PP_A_0.1_mgL,693,705,complete,complete,1.15,yes,heallthy
-26Apr2024,PP(A)_9,PP_A_0.1_mgL,706,718,complete,complete,1.18,yes,healthy
-26Apr2024,PP(A)_10,PP_A_0.1_mgL,719,731,complete,complete,1.21,yes,"RLC reading is weird, healthy"
-26Apr2024,PP(A)_11,PP_A_1_mgL,732,744,complete,complete,0.89,yes,cleavage
-26Apr2024,PP(A)_12,PP_A_1_mgL,765,777,complete,complete,0.49,yes,healthy
-26Apr2024,PP(A)_13,PP_A_1_mgL,778,790,complete,complete,0.85,yes,"weird RLC, healthy "
-26Apr2024,PP(A)_14,PP_A_1_mgL,797,809,complete,complete,1.67,yes,healthy
-26Apr2024,PP(A)_15,PP_A_1_mgL,810,822,complete,complete,0.85,yes,bleached
-26Apr2024,PP(A)_16,PP_A_10_mgL,834,846,complete,complete,3.07,yes,healthy
-26Apr2024,PP(A)_17,PP_A_10_mgL,847,859,complete,complete,3.23,yes,healthy
-26Apr2024,PP(A)_18,PP_A_10_mgL,860,872,complete,complete,0.85,yes,healthy
-26Apr2024,PP(A)_19,PP_A_10_mgL,873,885,complete,complete,1.18,yes,healthy
-26Apr2024,PP(A)_20,PP_A_10_mgL,886,898,complete,complete,1.29,yes,healthy
-26Apr2024,PP(A)_21,PP_A_100_mgL,899,911,complete,complete,2.76,yes,"healthy, chonk"
-26Apr2024,PP(A)_22,PP_A_100_mgL,923,935,complete,complete,0.96,yes,healthy
-26Apr2024,PP(A)_23,PP_A_100_mgL,941,953,complete,complete,1.01,yes,healthy
-26Apr2024,PP(A)_24,PP_A_100_mgL,954,966,complete,complete,3.59,yes,healthhy
-26Apr2024,PP(A)_25,PP_A_100_mgL,967,979,complete,complete,1.23,yes,healthy
-26Apr2024,PVC_1,PVC_0.01_mgL,94,106,complete,complete,1.09,yes,healthy
-26Apr2024,PVC_2,PVC_0.01_mgL,81,93,complete,complete,1.56,yes,healthy
-26Apr2024,PVC_3,PVC_0.01_mgL,68,80,complete,complete,0.81,yes,healthy
-26Apr2024,PVC_4,PVC_0.01_mgL,55,67,complete,complete,1.19,yes,healthy
-26Apr2024,PVC_5,PVC_0.01_mgL,400,412,complete,complete,1.45,yes,"placement_issue, healthy"
-26Apr2024,PVC_6,PVC_0.1_mgL ,416,428,complete,complete,0.86,yes,"beginning Fo didn't read, but the rest of the ETR was captured, healthy"
-26Apr2024,PVC_7,PVC_0.1_mgL ,156,168,complete,complete,2.44,yes,healthy
-26Apr2024,PVC_8,PVC_0.1_mgL ,143,155,complete,complete,1.42,yes,healthy
-26Apr2024,PVC_9,PVC_0.1_mgL ,130,142,complete,complete,2.11,yes,healthy
-26Apr2024,PVC_10,PVC_0.1_mgL ,117,129,complete,complete,1.31,yes,healthy
-26Apr2024,PVC_11,PVC_1_mgL,444,456,complete,complete,0.89,yes,"placement_issue , healthy"
-26Apr2024,PVC_12,PVC_1_mgL,176,188,complete,complete,1.21,yes,healthy
-26Apr2024,PVC_13,PVC_1_mgL,980,992,complete,complete,1.20,yes,"placement_issue, healthy"
-26Apr2024,PVC_14,PVC_1_mgL,199,211,complete,complete,1.26,yes,healthy
-26Apr2024,PVC_15,PVC_1_mgL,212,224,complete,complete,1.70,yes,healthy
-26Apr2024,PVC_16,PVC_10_mgL,228,240,complete,complete,0.51,yes,"stopped reading partway though. started over immediately after, healthy"
-26Apr2024,PVC_17,PVC_10_mgL,241,253,complete,complete,0.55,yes,healthy
-26Apr2024,PVC_18,PVC_10_mgL,254,266,complete,complete,0.68,yes,healthy
-26Apr2024,PVC_19,PVC_10_mgL,267,279,complete,complete,0.65,yes,laceration
-26Apr2024,PVC_20,PVC_10_mgL,280,292,complete,complete,0.97,yes,bleached
-26Apr2024,PVC_21,PVC_100_mgL,387,399,complete,complete,0.61,yes,"stopped reading 2x partway though. started over immediately after, cleavage"
-26Apr2024,PVC_22,PVC_100_mgL,374,386,complete,complete,0.33,yes,cleavage
-26Apr2024,PVC_23,PVC_100_mgL,461,473,complete,complete,1.38,yes,healthy
-26Apr2024,PVC_24,PVC_100_mgL,361,373,complete,complete,0.66,yes,"aggragate 12, low simbiont (Symbiont?) density"
-26Apr2024,PVC_25,PVC_100_mgL,327,339,complete,complete,0.98,yes,healthy
+date,id,treatment ,RLC_start,RLC_end,RLC,Respirometry,wet_weight_g,whole_anemone,Fv_Fm,note
+26Apr2024,Control_1,Control,474,486,complete,complete,0.84,yes,0.536,healthy
+26Apr2024,Control_2,Control,487,499,complete,complete,0.58,yes,0.55,healthy
+26Apr2024,Control_3,Control,500,512,complete,complete,3.61,yes,0.294,healthy
+26Apr2024,Control_4,Control,513,525,complete,complete,1.05,yes,0.541,healthy
+26Apr2024,Control_5,Control,526,538,complete,complete,1.49,yes,0.456,healthy
+26Apr2024,PP(A)_1,PP_A_0.01_mgL,552,564,complete,complete,0.97,yes,0.517,healthy
+26Apr2024,PP(A)_2,PP_A_0.01_mgL,565,577,complete,complete,0.48,yes,0.527,healthy
+26Apr2024,PP(A)_3,PP_A_0.01_mgL,610,622,complete,complete,1.25,yes,0.409,healthy
+26Apr2024,PP(A)_4,PP_A_0.01_mgL,623,635,complete,complete,1.10,yes,0.566,bleached
+26Apr2024,PP(A)_5,PP_A_0.01_mgL,636,648,complete,complete,1.70,yes,0.321,juicy one
+26Apr2024,PP(A)_6,PP_A_0.1_mgL,649,661,complete,complete,1.10,yes,0.658,healthy
+26Apr2024,PP(A)_7,PP_A_0.1_mgL,680,692,complete,complete,1.28,yes,0.419,healthy
+26Apr2024,PP(A)_8,PP_A_0.1_mgL,693,705,complete,complete,1.15,yes,0.604,heallthy
+26Apr2024,PP(A)_9,PP_A_0.1_mgL,706,718,complete,complete,1.18,yes,0.388,healthy
+26Apr2024,PP(A)_10,PP_A_0.1_mgL,719,731,complete,complete,1.21,yes,0.447,"RLC reading is weird, healthy"
+26Apr2024,PP(A)_11,PP_A_1_mgL,732,744,complete,complete,0.89,yes,0.689,cleavage
+26Apr2024,PP(A)_12,PP_A_1_mgL,765,777,complete,complete,0.49,yes,0.353,healthy
+26Apr2024,PP(A)_13,PP_A_1_mgL,778,790,complete,complete,0.85,yes,0.279,"weird RLC, healthy "
+26Apr2024,PP(A)_14,PP_A_1_mgL,797,809,complete,complete,1.67,yes,0.166,healthy
+26Apr2024,PP(A)_15,PP_A_1_mgL,810,822,complete,complete,0.85,yes,0.571,bleached
+26Apr2024,PP(A)_16,PP_A_10_mgL,834,846,complete,complete,3.07,yes,0.528,healthy
+26Apr2024,PP(A)_17,PP_A_10_mgL,847,859,complete,complete,3.23,yes,0.529,healthy
+26Apr2024,PP(A)_18,PP_A_10_mgL,860,872,complete,complete,0.85,yes,0.454,healthy
+26Apr2024,PP(A)_19,PP_A_10_mgL,873,885,complete,complete,1.18,yes,0.5,healthy
+26Apr2024,PP(A)_20,PP_A_10_mgL,886,898,complete,complete,1.29,yes,0.576,healthy
+26Apr2024,PP(A)_21,PP_A_100_mgL,899,911,complete,complete,2.76,yes,0.462,"healthy, chonk"
+26Apr2024,PP(A)_22,PP_A_100_mgL,923,935,complete,complete,0.96,yes,0.468,healthy
+26Apr2024,PP(A)_23,PP_A_100_mgL,941,953,complete,complete,1.01,yes,0.471,healthy
+26Apr2024,PP(A)_24,PP_A_100_mgL,954,966,complete,complete,3.59,yes,0.389,healthhy
+26Apr2024,PP(A)_25,PP_A_100_mgL,967,979,complete,complete,1.23,yes,0.411,healthy
+26Apr2024,PVC_1,PVC_0.01_mgL,94,106,complete,complete,1.09,yes,0.5,healthy
+26Apr2024,PVC_2,PVC_0.01_mgL,81,93,complete,complete,1.56,yes,0.379,healthy
+26Apr2024,PVC_3,PVC_0.01_mgL,68,80,complete,complete,0.81,yes,0.47,healthy
+26Apr2024,PVC_4,PVC_0.01_mgL,55,67,complete,complete,1.19,yes,0.585,healthy
+26Apr2024,PVC_5,PVC_0.01_mgL,400,412,complete,complete,1.45,yes,0.601,"placement_issue, healthy"
+26Apr2024,PVC_6,PVC_0.1_mgL ,416,428,complete,complete,0.86,yes,0.382,"beginning Fo didn't read, but the rest of the ETR was captured, healthy"
+26Apr2024,PVC_7,PVC_0.1_mgL ,156,168,complete,complete,2.44,yes,0.452,healthy
+26Apr2024,PVC_8,PVC_0.1_mgL ,143,155,complete,complete,1.42,yes,0.449,healthy
+26Apr2024,PVC_9,PVC_0.1_mgL ,130,142,complete,complete,2.11,yes,0.393,healthy
+26Apr2024,PVC_10,PVC_0.1_mgL ,117,129,complete,complete,1.31,yes,0.533,healthy
+26Apr2024,PVC_11,PVC_1_mgL,444,456,complete,complete,0.89,yes,0.746,"placement_issue , healthy"
+26Apr2024,PVC_12,PVC_1_mgL,176,188,complete,complete,1.21,yes,0.574,healthy
+26Apr2024,PVC_13,PVC_1_mgL,980,992,complete,complete,1.20,yes,0.458,"placement_issue, healthy"
+26Apr2024,PVC_14,PVC_1_mgL,199,211,complete,complete,1.26,yes,0.487,healthy
+26Apr2024,PVC_15,PVC_1_mgL,212,224,complete,complete,1.70,yes,0.451,healthy
+26Apr2024,PVC_16,PVC_10_mgL,228,240,complete,complete,0.51,yes,0.467,"stopped reading partway though. started over immediately after, healthy"
+26Apr2024,PVC_17,PVC_10_mgL,241,253,complete,complete,0.55,yes,0.439,healthy
+26Apr2024,PVC_18,PVC_10_mgL,254,266,complete,complete,0.68,yes,0.468,healthy
+26Apr2024,PVC_19,PVC_10_mgL,267,279,complete,complete,0.65,yes,0.533,laceration
+26Apr2024,PVC_20,PVC_10_mgL,280,292,complete,complete,0.97,yes,0.458,bleached
+26Apr2024,PVC_21,PVC_100_mgL,387,399,complete,complete,0.61,yes,0.527,"stopped reading 2x partway though. started over immediately after, cleavage"
+26Apr2024,PVC_22,PVC_100_mgL,374,386,complete,complete,0.33,yes,0.434,cleavage
+26Apr2024,PVC_23,PVC_100_mgL,461,473,complete,complete,1.38,yes,0.229,healthy
+26Apr2024,PVC_24,PVC_100_mgL,361,373,complete,complete,0.66,yes,0.174,"aggragate 12, low simbiont (Symbiont?) density"
+26Apr2024,PVC_25,PVC_100_mgL,327,339,complete,complete,0.98,yes,0.613,healthy

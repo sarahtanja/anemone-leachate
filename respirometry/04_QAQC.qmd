@@ -107,7 +107,7 @@ inspect(time = 'delta_t', oxygen = '7') %>%  auto_rate()
 ```{r}
 new1.7 <-  resp_run_1 %>%
   inspect(time = 'delta_t', oxygen = '7') %>%
-  calc_rate(from = 10, to = 25, by = 'time')
+  calc_rate(from = 4, to = 15, by = 'time')
 ```
 
 ```{r}
@@ -120,26 +120,18 @@ this.channel <- 7
 new.rate <- new.calc$summary$rate[1]
 new.rsq <- new.calc$summary$rsq[1]
 
-blank <- paste0("bg_rate_resp_", this.run)
-# new background adjusted object
-new.adj <- adjust_rate(new.calc, by = get(blank), method = "mean") 
-# from the background-adjusted object, pull the adjusted rate
-new.bg.adj.rate <- new.adj$summary$rate.adjusted[1]
-
 # Add qaqc value to new column based on conditions in 'run' and 'channel' columns
 resp_rates <- resp_rates %>%
   mutate(
     qaqc_resp_rate = ifelse(run == this.run &
                          channel == this.channel, new.rate, NA),
     qaqc_resp_r2 = ifelse(run == this.run &
-                       channel == this.channel, new.rsq, NA),
-    qaqc_resp_bg_adj_rate = ifelse(run == this.run &
-                       channel == this.channel, new.bg.adj.rate, NA)
+                       channel == this.channel, new.rsq, NA)
   )
 
 
 
-filter(resp_rates, run == this.run & channel == this.channel) %>% select("run", "channel", "treatment", "qaqc_resp_rate", "qaqc_resp_r2", "qaqc_resp_bg_adj_rate")
+filter(resp_rates, run == this.run & channel == this.channel) %>% select("run", "channel", "treatment", "qaqc_resp_rate", "qaqc_resp_r2")
 ```
 
 #### 2.2
@@ -177,14 +169,12 @@ resp_rates <- resp_rates %>%
     qaqc_resp_rate = ifelse(run == this.run &
                          channel == this.channel, new.rate, qaqc_resp_rate),
     qaqc_resp_r2 = ifelse(run == this.run &
-                       channel == this.channel, new.rsq, qaqc_resp_r2),
-    qaqc_resp_bg_adj_rate = ifelse(run == this.run &
-                       channel == this.channel, new.bg.adj.rate, qaqc_resp_bg_adj_rate)
+                       channel == this.channel, new.rsq, qaqc_resp_r2)
   )
 
 
 
-filter(resp_rates, run == this.run & channel == this.channel) %>% select("run", "channel", "treatment", "qaqc_resp_rate", "qaqc_resp_r2", "qaqc_resp_bg_adj_rate")
+filter(resp_rates, run == this.run & channel == this.channel) %>% select("run", "channel", "treatment", "qaqc_resp_rate", "qaqc_resp_r2")
 ```
 
 #### 2.3

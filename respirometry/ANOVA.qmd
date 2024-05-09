@@ -179,3 +179,71 @@ phot_aov <- aov(massnorm_phot_rate ~ treatment,
 
 summary(phot_aov)
 ```
+
+
+## Hypothesis
+
+```{r}
+# Set the mean and standard deviation
+mean_val <- 0.01
+sd_val <- 0.005
+
+# Generate data for each treatment
+control_data <- rnorm(5, mean = mean_val, sd = sd_val)
+low_data <- rnorm(5, mean = mean_val + 0.01, sd = sd_val)
+high_data <- rnorm(5, mean = mean_val + 0.02, sd = sd_val)
+
+# Combine all data
+respiration <- c(control_data, low_data, high_data)
+treatment <- rep(c('control', 'low', 'high'), each = 5)
+
+# Create dataframe
+hyp <- data.frame(respiration = respiration, treatment = treatment)
+
+# Print dataframe
+print(hyp)
+```
+```{r}
+# Convert treatment to a factor with desired levels order
+hyp$treatment <- factor(hyp$treatment, levels = c('control', 'low', 'high'))
+
+ggplot(hyp) +
+  aes(x = treatment, y = respiration, fill= treatment) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+   labs(
+    title = "Concentration vs. Respiration Rate",
+    x = "Leachate concentration (mg/L)",
+    y = "Respiration Rate"
+  )
+```
+
+# Fv/Fm
+
+```{r}
+newmeta <- read_csv("../metadata/nem_metadata.csv")
+```
+
+```{r}
+ggplot(newmeta) +
+  aes(x = treatment, y = Fv_Fm, fill= treatment) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+   labs(
+    title = "Concentration vs. Photosynthetic efficiency",
+    x = "Leachate concentration (mg/L)",
+    y = "Photosynthetic efficiency"
+  )
+
+```
+
+
+```{r}
+fvfm_aov <- aov(Fv_Fm ~ treatment,
+  data = newmeta
+)
+
+summary(fvfm_aov)
+
+```
+
