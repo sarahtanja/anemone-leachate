@@ -311,7 +311,7 @@ for (i in 1:11){
 
 The lights were turned on after 30 minutes, and the respirometry was
 ended at about a total of 60 minutes (though some runs ran longer). Here
-I trim between 35 and 60, to give 5 minutes of 'light phase'
+I trim between 35 and 60, to give 10 minutes of 'light phase'
 acclimation.
 
 ```{r}
@@ -322,7 +322,7 @@ for (i in 1:11){
   
   # Filter the current run_i dataframe and store it as resp_run_i
   assign(phot_name, get(run_num) %>% 
-  filter(delta_t > 35, delta_t < 60 ))
+  filter(delta_t > 40, delta_t < 60 ))
   
   # Save the filtered dataframe as a .csv file in the output folder
   write.csv(get(phot_name), file = paste0("output/", phot_name, ".csv"), row.names = FALSE)

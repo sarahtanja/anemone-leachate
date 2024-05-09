@@ -1,0 +1,63 @@
+---
+title: "Respirometry analysis: Part 1"
+subtitle: "Pull in data and format it for use in the `respR` package"
+author: "Sarah Tanja"
+date: "`r format(Sys.time(), '%d %B, %Y')`"  
+format:
+  html:
+    df-print: paged
+    toc: true
+    toc-location: right
+    smooth-scroll: true
+    link-external-icon: true
+    link-external-newwindow: true
+    code-fold: false
+    code-tools: true
+    code-copy: true
+    highlight-style: breeze
+    code-overflow: wrap
+    theme: minty
+editor: 
+  markdown: 
+    wrap: 72
+---
+# Install and load packages
+
+```{r}
+# Install packages
+if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages('tidyverse')
+if ("dplyr" %in% rownames(installed.packages()) == 'FALSE') install.packages('dplyr')
+if ("lubridate" %in% rownames(installed.packages()) == 'FALSE') install.packages('lubridate')
+if ("respR" %in% rownames(installed.packages()) == 'FALSE') install.packages('respR')
+
+# Load packages
+library(dplyr)
+library(tidyverse)
+library(lubridate)
+library(respR)
+```
+
+# Pull in metadata
+```{r}
+nem_metadata <- read_csv("../metadata/nem_metadata.csv")
+```
+
+# Pull in data
+```{r}
+rlc_og <- read_csv("data/ALL55_anemones_RLSs_26APR2024.csv")
+```
+
+```{r}
+rlc <- rlc_og %>% filter(!is.na(No.))
+```
+
+```{r}
+
+# Join metadata with data
+rlc_mer <- left_join(rlc, nem_metadata, by = c("No." = "RLC_start")) 
+
+rlc_merged <- merge(rlc_merge, nem_metadata, by = "RLC_end")
+
+
+```
+

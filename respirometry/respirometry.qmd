@@ -1344,7 +1344,7 @@ hist(phot_rates$phot_bg_adj_rate)
 qqPlot(phot_rates$phot_bg_adj_rate)
 ```
 
-## Join resp_rates to merged_metadata
+## Join phot_rates to merged_metadata
 
 ```{r}
 phot_rates <- left_join(phot_rates, merged_metadata)

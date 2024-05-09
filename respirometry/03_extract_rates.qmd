@@ -23,7 +23,7 @@ editor:
 ---
 # Install and load packages
 
-```{r}
+```{r install and load packages}
 # Install packages
 if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages('tidyverse')
 if ("dplyr" %in% rownames(installed.packages()) == 'FALSE') install.packages('dplyr')
@@ -122,7 +122,7 @@ oxygen consumption!
 
 Using a nested loop
 
-```{r}
+```{r respiration nested loop }
 # Initialize the resp_rates data frame with all required columns
 resp_rates <- data.frame(run = integer(),
                          channel = factor(),
@@ -201,16 +201,6 @@ for (i in 1:11) {
 write.csv(resp_rates, file = "output/resp_rates.csv", row.names = FALSE)
 ```
 
-```{r}
-print(bg_resp_mean[["rate.bg.mean"]])
-
-resp_run_1.2 <- resp_run_1 %>% select(1,2) %>% drop_na()
-inspected <- inspect(resp_run_1.2, time = "delta_t", oxygen = 2)
-auto_rated <- auto_rate(inspected)
-
-auto_rated$summary$rate[1]
-```
-
 ## Photosynthesis
 
 oxygen production!
@@ -219,7 +209,7 @@ The following code should result in a dataframe that has one row for
 each respirometry chamber (in this dataset, 55 rows of treatments &
 controls with anemone specimens, and 11 with blanks for each run)
 
-```{r}
+```{r photosynthesis nested loop}
 # Initialize the resp_rates data frame with all required columns
 phot_rates <- data.frame(run = integer(),
                          channel = factor(),
