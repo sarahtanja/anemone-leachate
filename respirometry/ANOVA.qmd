@@ -45,7 +45,8 @@ if normality is assumed, test the homogeneity of variances #variances equal, ANO
 Anemone treatments are the variables
 
 # How to do it
-#install tidyverse, dplyr, car and load 
+
+#install tidyverse, dplyr, car and load
 
 ```{r}
 if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages('tidyverse')
@@ -57,13 +58,14 @@ library(tidyverse)
 library(car)
 library(ggplot2)
 ```
+
 ```{r}
 install.packages("ggplot2")
 ```
+
 ```{r}
 library(ggplot2)
 ```
-
 
 ```{r}
 rates <- read.csv('rates.csv')
@@ -71,6 +73,7 @@ rates <- read.csv('rates.csv')
 ```
 
 #Respiration
+
 ```{r}
 ggplot(rates) +
   aes(x = treatment, y = massnorm_resp_rate, color = treatment) +
@@ -79,6 +82,7 @@ ggplot(rates) +
 ```
 
 ## Data normality
+
 ```{r}
 resp_aov <-  aov(massnorm_resp_rate ~ treatment, data = rates)
 ```
@@ -94,7 +98,9 @@ qqPlot(resp_aov$residuals,
   id = FALSE # id = FALSE to remove point identification
 )
 ```
+
 ## Boxplot
+
 ```{r}
 ggplot(rates) +
   aes(x = treatment, y = massnorm_resp_rate, fill = treatment) +
@@ -107,10 +113,10 @@ ggplot(rates) +
   ) +
   scale_x_discrete(labels = c("Control ", "PPa 0.01", "PPa 0.1","PPa 1", "PPa 10", "PPa 100","PVC 0.01", "PVC 0.1", "PVC 1", "PVC 10", "PVC 100")) +  
   scale_fill_manual(values = c("seashell", "coral", "coral1","coral2","coral3", "coral4","dodgerblue","dodgerblue1","dodgerblue2", "dodgerblue3","dodgerblue4")) 
-  
-
 ```
+
 ## ANOVA
+
 ```{r}
 resp_aov <- aov(massnorm_resp_rate ~ treatment,
   data = rates
@@ -119,11 +125,10 @@ resp_aov <- aov(massnorm_resp_rate ~ treatment,
 summary(resp_aov)
 ```
 
-
-
 # Photosynthesis
 
 ## First glimpse of data
+
 ```{r}
 ggplot(rates) +
   aes(x = treatment, y = massnorm_phot_rate, color = treatment) +
@@ -132,6 +137,7 @@ ggplot(rates) +
 ```
 
 ## Data normality
+
 ```{r}
 res_aov <-  aov(massnorm_phot_rate ~ treatment, data = rates)
 ```
@@ -149,6 +155,7 @@ qqPlot(res_aov$residuals,
 ```
 
 ## Boxplot
+
 ```{r}
 ggplot(rates) +
   aes(x = treatment, y = massnorm_phot_rate, fill= treatment) +
@@ -164,6 +171,7 @@ ggplot(rates) +
 ```
 
 ## ANOVA
+
 ```{r}
 phot_aov <- aov(massnorm_phot_rate ~ treatment,
   data = rates
@@ -171,5 +179,3 @@ phot_aov <- aov(massnorm_phot_rate ~ treatment,
 
 summary(phot_aov)
 ```
-
-

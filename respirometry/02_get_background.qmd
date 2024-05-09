@@ -1,6 +1,6 @@
 ---
-title: "Respirometry analysis: Part 1"
-subtitle: "Pull in data and format it for use in the `respR` package"
+title: "Respirometry analysis: Part 2"
+subtitle: "Get background rates from the `blank` chambers"
 author: "Sarah Tanja"
 date: "`r format(Sys.time(), '%d %B, %Y')`"  
 format:
@@ -30,12 +30,33 @@ if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages
 if ("dplyr" %in% rownames(installed.packages()) == 'FALSE') install.packages('dplyr')
 if ("lubridate" %in% rownames(installed.packages()) == 'FALSE') install.packages('lubridate')
 if ("respR" %in% rownames(installed.packages()) == 'FALSE') install.packages('respR')
+if ("car" %in% rownames(installed.packages()) == 'FALSE') install.packages('car')
+
 
 # Load packages
 library(dplyr)
 library(tidyverse)
 library(lubridate)
 library(respR)
+library(car)
+```
+
+# Load in dataframes
+
+```{r}
+# Get a list of all CSV files in your output folder
+csv_files <- list.files("output", pattern = "\\.csv$", full.names = TRUE)
+
+# Loop through each CSV file and read it into a dataframe
+for (file in csv_files) {
+  # Extract the dataframe name from the file name
+  df_name <- sub("\\.csv$", "", basename(file))
+  # Read the CSV file into a dataframe and assign it the dataframe name
+  assign(df_name, read.csv(file, check.names = FALSE))
+}
+
+# Now you'll have dataframes named after the CSV files
+# For example, if you have a file named "example.csv", you'll have a dataframe named "example"
 ```
 
 # About accounting for background
@@ -58,7 +79,7 @@ portion of the respirometry test
 Make a dataframe of the 'blanks'
 
 ```{r}
-run_blanks <- resp_log %>% 
+run_blanks <- merged_metadata %>% 
   filter(id == "blank") %>% 
   select(id, run, channel)
 
@@ -74,62 +95,62 @@ from each respiration run dataset~~
 # This one starts oxygen production at min 25
 resp_run_1 <- resp_run_1 %>% filter(delta_t < 25)
 bg_insp <- inspect(resp_run_1, time = 1, oxygen = "7")
-bg_rate_resp_1 <- calc_rate.bg(bg_insp)
+bg_rate_resp_run_1 <- calc_rate.bg(bg_insp)
 # then remove the background blank from the dataset
 #resp_run_1 <- resp_run_1 %>%  select(-"7")
 
 # run 2
 bg_insp <- inspect(resp_run_2, time = 1, oxygen = "2")
-bg_rate_resp_2 <- calc_rate.bg(bg_insp)
+bg_rate_resp_run_2 <- calc_rate.bg(bg_insp)
 #resp_run_2 <- resp_run_2 %>%  select(-"2")
 
 # 3
 # This one starts oxygen production at min 25
 resp_run_3 <- resp_run_3 %>% filter (delta_t < 25)
 bg_insp <- inspect(resp_run_3, time = 1, oxygen = "4")
-bg_rate_resp_3 <- calc_rate.bg(bg_insp)
+bg_rate_resp_run_3 <- calc_rate.bg(bg_insp)
 #resp_run_3 <- resp_run_3 %>%  select(-"4")
 
 # 4
 bg_insp <- inspect(resp_run_4, time = 1, oxygen = "1")
-bg_rate_resp_4 <- calc_rate.bg(bg_insp)
+bg_rate_resp_run_4 <- calc_rate.bg(bg_insp)
 #resp_run_4 <- resp_run_4 %>%  select(-"1")
 
 # 5
 bg_insp <- inspect(resp_run_5, time = 1, oxygen = "3")
-bg_rate_resp_5 <- calc_rate.bg(bg_insp)
+bg_rate_resp_run_5 <- calc_rate.bg(bg_insp)
 #resp_run_5 <- resp_run_5 %>%  select(-"3")
 
 # 6
 bg_insp <- inspect(resp_run_6, time = 1, oxygen = "5")
-bg_rate_resp_6 <- calc_rate.bg(bg_insp)
+bg_rate_resp_run_6 <- calc_rate.bg(bg_insp)
 #resp_run_6 <- resp_run_6 %>%  select(-"5")
 
 # 7
 bg_insp <- inspect(resp_run_7, time = 1, oxygen = "7")
-bg_rate_resp_7 <- calc_rate.bg(bg_insp)
+bg_rate_resp_run_7 <- calc_rate.bg(bg_insp)
 #resp_run_7 <- resp_run_7 %>%  select(-"7")
 
 # 8
 bg_insp <- inspect(resp_run_8, time = 1, oxygen = "5")
-bg_rate_resp_8 <- calc_rate.bg(bg_insp)
+bg_rate_resp_run_8 <- calc_rate.bg(bg_insp)
 #resp_run_8 <- resp_run_8 %>%  select(-"5")
 
 # 9
 bg_insp <- inspect(resp_run_9, time = 1, oxygen = "4")
-bg_rate_resp_9 <- calc_rate.bg(bg_insp)
+bg_rate_resp_run_9 <- calc_rate.bg(bg_insp)
 #resp_run_9 <- resp_run_9 %>%  select(-"4")
 
 # 10
 bg_insp <- inspect(resp_run_10, time = 1, oxygen = "3")
-bg_rate_resp_10 <- calc_rate.bg(bg_insp)
+bg_rate_resp_run_10 <- calc_rate.bg(bg_insp)
 #resp_run_10 <- resp_run_10 %>%  select(-"3")
 
 # 11
 # Bad data at beginning needs to be trimmed
 resp_run_11 <- resp_run_11 %>% filter(delta_t > 6)
 bg_insp <- inspect(resp_run_11, time = 1, oxygen = "2")
-bg_rate_resp_11 <- calc_rate.bg(bg_insp)
+bg_rate_resp_run_11 <- calc_rate.bg(bg_insp)
 #resp_run_11 <- resp_run_11 %>%  select(-"2")
 ```
 
@@ -137,17 +158,17 @@ bg_rate_resp_11 <- calc_rate.bg(bg_insp)
 
 ```{r}
 bg.rates <- c(
-  bg_rate_resp_1$summary$rate.bg,
-  bg_rate_resp_2$summary$rate.bg,
-  bg_rate_resp_3$summary$rate.bg,
-  bg_rate_resp_4$summary$rate.bg,
-  bg_rate_resp_5$summary$rate.bg,
-  bg_rate_resp_6$summary$rate.bg,
-  bg_rate_resp_7$summary$rate.bg,
-  bg_rate_resp_8$summary$rate.bg,
-  bg_rate_resp_9$summary$rate.bg,
-  bg_rate_resp_10$summary$rate.bg,
-  bg_rate_resp_11$summary$rate.bg)
+  bg_rate_resp_run_1$summary$rate.bg,
+  bg_rate_resp_run_2$summary$rate.bg,
+  bg_rate_resp_run_3$summary$rate.bg,
+  bg_rate_resp_run_4$summary$rate.bg,
+  bg_rate_resp_run_5$summary$rate.bg,
+  bg_rate_resp_run_6$summary$rate.bg,
+  bg_rate_resp_run_7$summary$rate.bg,
+  bg_rate_resp_run_8$summary$rate.bg,
+  bg_rate_resp_run_9$summary$rate.bg,
+  bg_rate_resp_run_10$summary$rate.bg,
+  bg_rate_resp_run_11$summary$rate.bg)
 
 run <- c(1:11)
 
@@ -157,13 +178,11 @@ print(resp_run_bg)
 ```
 
 ```{r}
-hist(resp_bg$bg.rates)
+hist(resp_run_bg$bg.rates)
 ```
 
 ```{r}
-if ("car" %in% rownames(installed.packages()) == 'FALSE') install.packages('car')
-library(car)
-qqPlot(resp_bg$bg.rates)
+qqPlot(resp_run_bg$bg.rates)
 ```
 
 ## Photosynthesis
@@ -174,62 +193,62 @@ The chambers that were blanks are the same
 # 1
 # first calculate the background rate
 bg_insp <- inspect(phot_run_1, time = 1, oxygen = "7")
-bg_rate_phot_1 <- calc_rate.bg(bg_insp)
+bg_rate_phot_run_1 <- calc_rate.bg(bg_insp)
 # then remove the background blank from the dataset
 #phot_run_1 <- phot_run_1 %>%  select(-"7")
 
 # 2
 bg_insp <- inspect(phot_run_2, time = 1, oxygen = "2")
-bg_rate_phot_2 <- calc_rate.bg(bg_insp)
+bg_rate_phot_run_2 <- calc_rate.bg(bg_insp)
 #phot_run_2 <- phot_run_2 %>%  select(-"2")
 
 # 3
 # bad data at beginning
 phot_run_3 <- phot_run_3 %>% filter(delta_t > 50)
 bg_insp <- inspect(phot_run_3, time = 1, oxygen = "4")
-bg_rate_phot_3 <- calc_rate.bg(bg_insp)
+bg_rate_phot_run_3 <- calc_rate.bg(bg_insp)
 #phot_run_3 <- phot_run_3 %>%  select(-"4")
 
 # 4
 bg_insp <- inspect(phot_run_4, time = 1, oxygen = "1")
-bg_rate_phot_4 <- calc_rate.bg(bg_insp)
+bg_rate_phot_run_4 <- calc_rate.bg(bg_insp)
 #phot_run_4 <- phot_run_4 %>%  select(-"1")
 
 # 5
 bg_insp <- inspect(phot_run_5, time = 1, oxygen = "3")
-bg_rate_phot_5 <- calc_rate.bg(bg_insp)
+bg_rate_phot_run_5 <- calc_rate.bg(bg_insp)
 #phot_run_5 <- phot_run_5 %>%  select(-"3")
 
 # 6
 bg_insp <- inspect(phot_run_6, time = 1, oxygen = "5")
-bg_rate_phot_6 <- calc_rate.bg(bg_insp)
+bg_rate_phot_run_6 <- calc_rate.bg(bg_insp)
 #phot_run_6 <- phot_run_6 %>%  select(-"5")
 
 # 7
 bg_insp <- inspect(phot_run_7, time = 1, oxygen = "7")
-bg_rate_phot_7 <- calc_rate.bg(bg_insp)
+bg_rate_phot_run_7 <- calc_rate.bg(bg_insp)
 #phot_run_7 <- phot_run_7 %>%  select(-"7")
 
 # 8
 # bad data at end
 phot_run_8 <- phot_run_8 %>% filter(delta_t < 53)
 bg_insp <- inspect(phot_run_8, time = 1, oxygen = "5")
-bg_rate_phot_8 <- calc_rate.bg(bg_insp)
+bg_rate_phot_run_8 <- calc_rate.bg(bg_insp)
 #phot_run_8 <- phot_run_8 %>%  select(-"5")
 
 # 9
 bg_insp <- inspect(phot_run_9, time = 1, oxygen = "4")
-bg_rate_phot_9 <- calc_rate.bg(bg_insp)
+bg_rate_phot_run_9 <- calc_rate.bg(bg_insp)
 #phot_run_9 <- phot_run_9 %>%  select(-"4")
 
 # 10
 bg_insp <- inspect(phot_run_10, time = 1, oxygen = "3")
-bg_rate_phot_10 <- calc_rate.bg(bg_insp)
+bg_rate_phot_run_10 <- calc_rate.bg(bg_insp)
 #phot_run_10 <- phot_run_10 %>%  select(-"3")
 
 # 11
 bg_insp <- inspect(phot_run_11, time = 1, oxygen = "2")
-bg_rate_phot_11 <- calc_rate.bg(bg_insp)
+bg_rate_phot_run_11 <- calc_rate.bg(bg_insp)
 #phot_run_11 <- phot_run_11 %>%  select(-"2")
 
 ```
@@ -238,17 +257,17 @@ bg_rate_phot_11 <- calc_rate.bg(bg_insp)
 
 ```{r}
 phot.bg.rates <- c(
-  bg_rate_phot_1$summary$rate.bg,
-  bg_rate_phot_2$summary$rate.bg,
-  bg_rate_phot_3$summary$rate.bg,
-  bg_rate_phot_4$summary$rate.bg,
-  bg_rate_phot_5$summary$rate.bg,
-  bg_rate_phot_6$summary$rate.bg,
-  bg_rate_phot_7$summary$rate.bg,
-  bg_rate_phot_8$summary$rate.bg,
-  bg_rate_phot_9$summary$rate.bg,
-  bg_rate_phot_10$summary$rate.bg,
-  bg_rate_phot_11$summary$rate.bg)
+  bg_rate_phot_run_1$summary$rate.bg,
+  bg_rate_phot_run_2$summary$rate.bg,
+  bg_rate_phot_run_3$summary$rate.bg,
+  bg_rate_phot_run_4$summary$rate.bg,
+  bg_rate_phot_run_5$summary$rate.bg,
+  bg_rate_phot_run_6$summary$rate.bg,
+  bg_rate_phot_run_7$summary$rate.bg,
+  bg_rate_phot_run_8$summary$rate.bg,
+  bg_rate_phot_run_9$summary$rate.bg,
+  bg_rate_phot_run_10$summary$rate.bg,
+  bg_rate_phot_run_11$summary$rate.bg)
 
 run <- c(1:11)
 
@@ -258,17 +277,17 @@ print(phot_run_bg)
 ```
 
 ```{r}
-hist(phot_bg$phot.bg.rates)
+hist(phot_run_bg$phot.bg.rates)
 ```
 
 ```{r}
-qqPlot(phot_bg$phot.bg.rates)
+qqPlot(phot_run_bg$phot.bg.rates)
 ```
 
 # By channel
 
 ```{r}
-channel_blanks <- resp_log %>% 
+channel_blanks <- merged_metadata %>% 
   filter(id == "blank") %>% 
   group_by(channel) %>% 
   summarize(run = list(run))
@@ -285,6 +304,7 @@ for (i in 1:nrow(channel_blanks)) {
 ```{r}
 # channel 1
 # channel 1 was the blank for run 4
+resp_channel_1 <- resp_run_4 %>% select(delta_t, "1")
 bg_insp <- inspect(resp_run_4, time = 1, oxygen = "1")
 bg_rate_resp_channel_1 <- calc_rate.bg(bg_insp)
 
@@ -337,10 +357,6 @@ bg_rate_resp_channel_7 <- calc_rate.bg(bg_insp)
 
 ```
 
-```{r}
-
-```
-
 ### Normality check
 
 ```{r}
@@ -364,6 +380,143 @@ print(bg_resp_channel)
 hist(bg_resp_channel$bg.rates.channel)
 ```
 
+```{r}
+qqPlot(bg_resp_channel$bg.rates.channel)
+```
+
 ## Photosynthesis
 
+```{r}
+# channel 1
+# channel 1 was the blank for run 4
+phot_channel_1 <- phot_run_4 %>% select(delta_t, "1")
+bg_insp <- inspect(phot_run_4, time = 1, oxygen = "1")
+bg_rate_phot_channel_1 <- calc_rate.bg(bg_insp)
+
+# channel 2
+phot_channel_2 <- phot_run_2 %>% 
+  select (delta_t, "2") %>% 
+  full_join(phot_run_11 %>% select(delta_t, "2"), by = "delta_t") %>% 
+  arrange(delta_t)
+
+bg_insp <- inspect(phot_channel_2, time = 1, oxygen = 2:3)
+bg_rate_phot_channel_2 <- calc_rate.bg(bg_insp)
+
+# channel 3
+phot_channel_3 <- phot_run_5 %>% 
+  select (delta_t, "3") %>% 
+  full_join(phot_run_10 %>% select(delta_t, "3"), by = "delta_t") %>% 
+  arrange(delta_t)
+
+bg_insp <- inspect(phot_channel_3, time = 1, oxygen = 2:3)
+bg_rate_phot_channel_3 <- calc_rate.bg(bg_insp)
+
+# channel 4
+phot_channel_4 <- phot_run_3 %>% 
+  select (delta_t, "4") %>% 
+  full_join(phot_run_9 %>% select(delta_t, "4"), by = "delta_t") %>% 
+  arrange(delta_t)
+
+bg_insp <- inspect(phot_channel_4, time = 1, oxygen = 2:3)
+bg_rate_phot_channel_4 <- calc_rate.bg(bg_insp)
+
+# channel 5
+# channel 5 was the blank for runs 6 & 8
+phot_channel_5 <- phot_run_6 %>% 
+  select (delta_t, "5") %>% 
+  full_join(phot_run_8 %>% select(delta_t, "5"), by = "delta_t") %>% 
+  arrange(delta_t)
+
+bg_insp <- inspect(phot_channel_5, time = 1, oxygen = 2:3)
+bg_rate_phot_channel_5 <- calc_rate.bg(bg_insp)
+
+# channel 7
+# channel 7 was the blank for runs 1 & 7
+phot_channel_7 <- phot_run_1 %>% 
+  select (delta_t, "7") %>% 
+  full_join(phot_run_7 %>% select(delta_t, "7"), by = "delta_t") %>% 
+  arrange(delta_t)
+
+bg_insp <- inspect(phot_channel_7, time = 1, oxygen = 2:3)
+bg_rate_phot_channel_7 <- calc_rate.bg(bg_insp)
+```
+
+```{r}
+bg.rates.channel <- c(
+  bg_rate_phot_channel_1[["rate.bg.mean"]],
+  bg_rate_phot_channel_2[["rate.bg.mean"]],
+  bg_rate_phot_channel_3[["rate.bg.mean"]],
+  bg_rate_phot_channel_4[["rate.bg.mean"]],
+  bg_rate_phot_channel_5[["rate.bg.mean"]],
+  bg_rate_phot_channel_7[["rate.bg.mean"]]
+  )
+
+channel <- c(1:5, 7)
+
+bg_phot_channel <- tibble(channel, bg.rates.channel)
+
+print(bg_phot_channel)
+```
+
+```{r}
+hist(bg_phot_channel$bg.rates.channel)
+```
+
+```{r}
+qqPlot(bg_phot_channel$bg.rates.channel)
+```
+
 # By mean
+
+## Respiration
+
+```{r}
+# List out all the 'blanks' 
+resp_blanks_list <- list(
+  resp_channel_1,
+  resp_channel_2,
+  resp_channel_3,
+  resp_channel_4,
+  resp_channel_5,
+  resp_channel_7
+)
+
+# Join all blanks
+resp_blanks_df <- reduce(resp_blanks_list, full_join, by = "delta_t") %>% arrange(delta_t) 
+
+# Inspect 
+bg_insp <- inspect(resp_blanks_df, time = 1, oxygen = 2:12)
+```
+
+```{r}
+# Create background object 
+bg_resp_mean <- calc_rate.bg(bg_insp, by = mean )
+
+summary(bg_resp_mean)
+```
+
+## Photosynthesis
+
+```{r}
+# List out all the 'blanks' 
+phot_blanks_list <- list(
+  phot_channel_1,
+  phot_channel_2,
+  phot_channel_3,
+  phot_channel_4,
+  phot_channel_5,
+  phot_channel_7
+)
+
+# Join all blanks
+phot_blanks_df <- reduce(phot_blanks_list, full_join, by = "delta_t") %>% arrange(delta_t) 
+
+# Inspect 
+bg_insp <- inspect(phot_blanks_df, time = 1, oxygen = 2:12)
+```
+```{r}
+# Create background object 
+bg_phot_mean <- calc_rate.bg(bg_insp, by = mean )
+
+summary(bg_phot_mean)
+```

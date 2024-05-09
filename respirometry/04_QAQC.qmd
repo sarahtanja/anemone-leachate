@@ -1,0 +1,637 @@
+---
+title: "Respirometry analysis: Part 2"
+subtitle: "Get background rates from the `blank` chambers"
+author: "Sarah Tanja"
+date: "`r format(Sys.time(), '%d %B, %Y')`"  
+format:
+  html:
+    df-print: paged
+    toc: true
+    toc-location: right
+    smooth-scroll: true
+    link-external-icon: true
+    link-external-newwindow: true
+    code-fold: false
+    code-tools: true
+    code-copy: true
+    highlight-style: breeze
+    code-overflow: wrap
+    theme: minty
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+# Install and load packages
+
+```{r}
+# Install packages
+if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages('tidyverse')
+if ("dplyr" %in% rownames(installed.packages()) == 'FALSE') install.packages('dplyr')
+if ("lubridate" %in% rownames(installed.packages()) == 'FALSE') install.packages('lubridate')
+if ("respR" %in% rownames(installed.packages()) == 'FALSE') install.packages('respR')
+if ("car" %in% rownames(installed.packages()) == 'FALSE') install.packages('car')
+
+
+# Load packages
+library(dplyr)
+library(tidyverse)
+library(lubridate)
+library(respR)
+library(car)
+```
+
+# Load in dataframes
+
+```{r}
+# Get a list of all CSV files in your output folder
+csv_files <- list.files("output", pattern = "\\.csv$", full.names = TRUE)
+
+# Loop through each CSV file and read it into a dataframe
+for (file in csv_files) {
+  # Extract the dataframe name from the file name
+  df_name <- sub("\\.csv$", "", basename(file))
+  # Read the CSV file into a dataframe and assign it the dataframe name
+  assign(df_name, read.csv(file, check.names = FALSE))
+}
+
+# Now you'll have dataframes named after the CSV files
+# For example, if you have a file named "example.csv", you'll have a dataframe named "example"
+```
+
+# Respiration QAQC
+
+## Join resp_rates to merged_metadata
+
+```{r}
+resp_rates <- left_join(resp_rates, merged_metadata)
+```
+
+## QAQC respiration rates
+
+```{r}
+# filter for rates that are positive
+resp_badrates <- resp_rates %>% filter(resp_rate > 0 )
+
+print(resp_badrates)
+```
+
+```{r}
+# filter for r2 values that are below 0.8
+resp_badr2 <- resp_rates %>% filter(resp_r2 < 0.8)
+print(resp_badr2)
+```
+
+```{r}
+resp_baddies <- full_join(resp_badr2, resp_badrates)
+
+# Print a pretty table
+resp_baddies %>%
+  select(run, channel) %>%
+  arrange(run, channel) %>% 
+  kable(caption = "Respiration Trouble", format = "html", 
+        col.names = c("Run", "Channel")) %>%
+  kable_styling(full_width = FALSE)
+```
+
+Inspect the 'bad data' individually
+
+#### 1.7
+
+```{r}
+resp_run_1 %>% select('delta_t', '7') %>% drop_na() %>% 
+inspect(time = 'delta_t', oxygen = '7') %>%  auto_rate()
+```
+
+```{r}
+new1.7 <-  resp_run_1 %>%
+  inspect(time = 'delta_t', oxygen = '7') %>%
+  calc_rate(from = 10, to = 25, by = 'time')
+```
+
+```{r}
+### ONLY CHANGE THESE VALUES ###
+new.calc <- new1.7
+this.run <- 1
+this.channel <- 7
+################################
+
+new.rate <- new.calc$summary$rate[1]
+new.rsq <- new.calc$summary$rsq[1]
+
+blank <- paste0("bg_rate_resp_", this.run)
+# new background adjusted object
+new.adj <- adjust_rate(new.calc, by = get(blank), method = "mean") 
+# from the background-adjusted object, pull the adjusted rate
+new.bg.adj.rate <- new.adj$summary$rate.adjusted[1]
+
+# Add qaqc value to new column based on conditions in 'run' and 'channel' columns
+resp_rates <- resp_rates %>%
+  mutate(
+    qaqc_resp_rate = ifelse(run == this.run &
+                         channel == this.channel, new.rate, NA),
+    qaqc_resp_r2 = ifelse(run == this.run &
+                       channel == this.channel, new.rsq, NA),
+    qaqc_resp_bg_adj_rate = ifelse(run == this.run &
+                       channel == this.channel, new.bg.adj.rate, NA)
+  )
+
+
+
+filter(resp_rates, run == this.run & channel == this.channel) %>% select("run", "channel", "treatment", "qaqc_resp_rate", "qaqc_resp_r2", "qaqc_resp_bg_adj_rate")
+```
+
+#### 2.2
+
+```{r}
+resp_run_2 %>% select('delta_t', '2') %>% drop_na() %>% 
+inspect(time = 'delta_t', oxygen = '2') %>%  auto_rate()
+```
+
+```{r}
+new2.2 <-  resp_run_2 %>%
+  inspect(time = 'delta_t', oxygen = '2') %>%
+  calc_rate(from = 0, to = 6, by = 'time')
+```
+
+```{r}
+### ONLY CHANGE THESE VALUES ###
+new.calc <- new2.2
+this.run <- 2
+this.channel <- 2
+################################
+
+new.rate <- new.calc$summary$rate[1]
+new.rsq <- new.calc$summary$rsq[1]
+
+blank <- paste0("bg_rate_resp_", this.run)
+# new background adjusted object
+new.adj <- adjust_rate(new.calc, by = get(blank)) 
+# from the background-adjusted object, pull the adjusted rate
+new.bg.adj.rate <- new.adj$summary$rate.adjusted[1]
+
+# Add qaqc value to new column based on conditions in 'run' and 'channel' columns
+resp_rates <- resp_rates %>%
+  mutate(
+    qaqc_resp_rate = ifelse(run == this.run &
+                         channel == this.channel, new.rate, qaqc_resp_rate),
+    qaqc_resp_r2 = ifelse(run == this.run &
+                       channel == this.channel, new.rsq, qaqc_resp_r2),
+    qaqc_resp_bg_adj_rate = ifelse(run == this.run &
+                       channel == this.channel, new.bg.adj.rate, qaqc_resp_bg_adj_rate)
+  )
+
+
+
+filter(resp_rates, run == this.run & channel == this.channel) %>% select("run", "channel", "treatment", "qaqc_resp_rate", "qaqc_resp_r2", "qaqc_resp_bg_adj_rate")
+```
+
+#### 2.3
+
+```{r}
+resp_run_2 %>% select('delta_t', '3') %>% drop_na() %>% 
+inspect(time = 'delta_t', oxygen = '3') %>%  auto_rate()
+```
+
+```{r}
+new2.3 <-  resp_run_2 %>%
+  inspect(time = 'delta_t', oxygen = '3') %>%
+  calc_rate(from = 0, to = 5, by = 'time')
+```
+
+```{r}
+### ONLY CHANGE THESE VALUES ###
+new.calc <- new2.3
+this.run <- 2
+this.channel <- 3
+################################
+
+new.rate <- new.calc$summary$rate[1]
+new.rsq <- new.calc$summary$rsq[1]
+
+blank <- paste0("bg_rate_resp_", this.run)
+# new background adjusted object
+new.adj <- adjust_rate(new.calc, by = get(blank)) 
+# from the background-adjusted object, pull the adjusted rate
+new.bg.adj.rate <- new.adj$summary$rate.adjusted[1]
+
+# Add qaqc value to new column based on conditions in 'run' and 'channel' columns
+resp_rates <- resp_rates %>%
+  mutate(
+    qaqc_resp_rate = ifelse(run == this.run &
+                         channel == this.channel, new.rate, qaqc_resp_rate),
+    qaqc_resp_r2 = ifelse(run == this.run &
+                       channel == this.channel, new.rsq, qaqc_resp_r2),
+    qaqc_resp_bg_adj_rate = ifelse(run == this.run &
+                       channel == this.channel, new.bg.adj.rate, qaqc_resp_bg_adj_rate)
+  )
+
+
+
+filter(resp_rates, run == this.run & channel == this.channel) %>% select("run", "channel", "treatment", "qaqc_resp_rate", "qaqc_resp_r2", "qaqc_resp_bg_adj_rate")
+```
+
+#### 2.4
+
+```{r}
+resp_run_2 %>% select('delta_t', '4') %>% drop_na() %>% 
+inspect(time = 'delta_t', oxygen = '4') %>%  auto_rate()
+```
+
+```{r}
+new2.4 <-  resp_run_2 %>%
+  inspect(time = 'delta_t', oxygen = '4') %>%
+  calc_rate(from = 0, to = 7, by = 'time')
+```
+
+```{r}
+### ONLY CHANGE THESE VALUES ###
+new.calc <- new2.4
+this.run <- 2
+this.channel <- 4
+################################
+
+new.rate <- new.calc$summary$rate[1]
+new.rsq <- new.calc$summary$rsq[1]
+
+blank <- paste0("bg_rate_resp_", this.run)
+# new background adjusted object
+new.adj <- adjust_rate(new.calc, by = get(blank)) 
+# from the background-adjusted object, pull the adjusted rate
+new.bg.adj.rate <- new.adj$summary$rate.adjusted[1]
+
+# Add qaqc value to new column based on conditions in 'run' and 'channel' columns
+resp_rates <- resp_rates %>%
+  mutate(
+    qaqc_resp_rate = ifelse(run == this.run &
+                         channel == this.channel, new.rate, qaqc_resp_rate),
+    qaqc_resp_r2 = ifelse(run == this.run &
+                       channel == this.channel, new.rsq, qaqc_resp_r2),
+    qaqc_resp_bg_adj_rate = ifelse(run == this.run &
+                       channel == this.channel, new.bg.adj.rate, qaqc_resp_bg_adj_rate)
+  )
+
+
+
+filter(resp_rates, run == this.run & channel == this.channel) %>% select("run", "channel", "treatment", "qaqc_resp_rate", "qaqc_resp_r2", "qaqc_resp_bg_adj_rate")
+```
+
+#### 6.3
+
+```{r}
+resp_run_6 %>% select('delta_t', '3') %>% drop_na() %>% 
+inspect(time = 'delta_t', oxygen = '3') %>%  auto_rate()
+```
+
+```{r}
+new6.3 <-  resp_run_6 %>%
+  inspect(time = 'delta_t', oxygen = '3') %>%
+  calc_rate(from = 0, to = 15, by = 'time')
+```
+
+```{r}
+### ONLY CHANGE THESE VALUES ###
+new.calc <- new6.3
+this.run <- 6
+this.channel <- 3
+################################
+
+new.rate <- new.calc$summary$rate[1]
+new.rsq <- new.calc$summary$rsq[1]
+
+blank <- paste0("bg_rate_resp_", this.run)
+# new background adjusted object
+new.adj <- adjust_rate(new.calc, by = get(blank)) 
+# from the background-adjusted object, pull the adjusted rate
+new.bg.adj.rate <- new.adj$summary$rate.adjusted[1]
+
+# Add qaqc value to new column based on conditions in 'run' and 'channel' columns
+resp_rates <- resp_rates %>%
+  mutate(
+    qaqc_resp_rate = ifelse(run == this.run &
+                         channel == this.channel, new.rate, qaqc_resp_rate),
+    qaqc_resp_r2 = ifelse(run == this.run &
+                       channel == this.channel, new.rsq, qaqc_resp_r2),
+    qaqc_resp_bg_adj_rate = ifelse(run == this.run &
+                       channel == this.channel, new.bg.adj.rate, qaqc_resp_bg_adj_rate)
+  )
+
+
+
+filter(resp_rates, run == this.run & channel == this.channel) %>% select("run", "channel", "treatment", "qaqc_resp_rate", "qaqc_resp_r2", "qaqc_resp_bg_adj_rate")
+```
+
+#### 6.7
+
+```{r}
+resp_run_6 %>% select('delta_t', '7') %>% drop_na() %>% 
+inspect(time = 'delta_t', oxygen = '7') %>%  auto_rate()
+```
+
+```{r}
+new6.7 <-  resp_run_6 %>%
+  inspect(time = 'delta_t', oxygen = '7') %>%
+  calc_rate(from = 0, to = 12, by = 'time')
+```
+
+```{r}
+### ONLY CHANGE THESE VALUES ###
+new.calc <- new6.7
+this.run <- 6
+this.channel <- 7
+################################
+
+new.rate <- new.calc$summary$rate[1]
+new.rsq <- new.calc$summary$rsq[1]
+
+blank <- paste0("bg_rate_resp_", this.run)
+# new background adjusted object
+new.adj <- adjust_rate(new.calc, by = get(blank)) 
+# from the background-adjusted object, pull the adjusted rate
+new.bg.adj.rate <- new.adj$summary$rate.adjusted[1]
+
+# Add qaqc value to new column based on conditions in 'run' and 'channel' columns
+resp_rates <- resp_rates %>%
+  mutate(
+    qaqc_resp_rate = ifelse(run == this.run &
+                         channel == this.channel, new.rate, qaqc_resp_rate),
+    qaqc_resp_r2 = ifelse(run == this.run &
+                       channel == this.channel, new.rsq, qaqc_resp_r2),
+    qaqc_resp_bg_adj_rate = ifelse(run == this.run &
+                       channel == this.channel, new.bg.adj.rate, qaqc_resp_bg_adj_rate)
+  )
+
+
+
+filter(resp_rates, run == this.run & channel == this.channel) %>% select("run", "channel", "treatment", "qaqc_resp_rate", "qaqc_resp_r2", "qaqc_resp_bg_adj_rate")
+```
+
+#### 10.1
+
+```{r}
+resp_run_10 %>% select('delta_t', '1') %>% drop_na() %>% 
+inspect(time = 'delta_t', oxygen = '1') %>%  auto_rate()
+```
+
+```{r}
+new10.1 <-  resp_run_10 %>%
+  inspect(time = 'delta_t', oxygen = '1') %>%
+  calc_rate(from = 0, to = 12, by = 'time')
+```
+
+```{r}
+### ONLY CHANGE THESE VALUES ###
+new.calc <- new10.1
+this.run <- 10
+this.channel <- 1
+################################
+
+new.rate <- new.calc$summary$rate[1]
+new.rsq <- new.calc$summary$rsq[1]
+
+blank <- paste0("bg_rate_resp_", this.run)
+# new background adjusted object
+new.adj <- adjust_rate(new.calc, by = get(blank)) 
+# from the background-adjusted object, pull the adjusted rate
+new.bg.adj.rate <- new.adj$summary$rate.adjusted[1]
+
+# Add qaqc value to new column based on conditions in 'run' and 'channel' columns
+resp_rates <- resp_rates %>%
+  mutate(
+    qaqc_resp_rate = ifelse(run == this.run &
+                         channel == this.channel, new.rate, qaqc_resp_rate),
+    qaqc_resp_r2 = ifelse(run == this.run &
+                       channel == this.channel, new.rsq, qaqc_resp_r2),
+    qaqc_resp_bg_adj_rate = ifelse(run == this.run &
+                       channel == this.channel, new.bg.adj.rate, qaqc_resp_bg_adj_rate)
+  )
+
+
+
+filter(resp_rates, run == this.run & channel == this.channel) %>% select("run", "channel", "treatment", "qaqc_resp_rate", "qaqc_resp_r2", "qaqc_resp_bg_adj_rate")
+```
+
+#### 10.2
+
+```{r}
+resp_run_10 %>% select('delta_t', '2') %>% drop_na() %>% 
+inspect(time = 'delta_t', oxygen = '2') %>%  auto_rate()
+```
+
+```{r}
+new10.2 <-  resp_run_10 %>%
+  inspect(time = 'delta_t', oxygen = '2') %>%
+  calc_rate(from = 0, to = 12, by = 'time')
+```
+
+```{r}
+### ONLY CHANGE THESE VALUES ###
+new.calc <- new10.2
+this.run <- 10
+this.channel <- 2
+################################
+
+new.rate <- new.calc$summary$rate[1]
+new.rsq <- new.calc$summary$rsq[1]
+
+blank <- paste0("bg_rate_resp_", this.run)
+# new background adjusted object
+new.adj <- adjust_rate(new.calc, by = get(blank)) 
+# from the background-adjusted object, pull the adjusted rate
+new.bg.adj.rate <- new.adj$summary$rate.adjusted[1]
+
+# Add qaqc value to new column based on conditions in 'run' and 'channel' columns
+resp_rates <- resp_rates %>%
+  mutate(
+    qaqc_resp_rate = ifelse(run == this.run &
+                         channel == this.channel, new.rate, qaqc_resp_rate),
+    qaqc_resp_r2 = ifelse(run == this.run &
+                       channel == this.channel, new.rsq, qaqc_resp_r2),
+    qaqc_resp_bg_adj_rate = ifelse(run == this.run &
+                       channel == this.channel, new.bg.adj.rate, qaqc_resp_bg_adj_rate)
+  )
+
+
+
+filter(resp_rates, run == this.run & channel == this.channel) %>% select("run", "channel", "treatment", "qaqc_resp_rate", "qaqc_resp_r2", "qaqc_resp_bg_adj_rate")
+```
+
+#### 10.4
+
+```{r}
+resp_run_10 %>% select('delta_t', '4') %>% drop_na() %>% 
+inspect(time = 'delta_t', oxygen = '4') %>%  auto_rate()
+```
+
+```{r}
+new10.4 <-  resp_run_10 %>%
+  inspect(time = 'delta_t', oxygen = '4') %>%
+  calc_rate(from = 0, to = 12, by = 'time')
+```
+
+```{r}
+### ONLY CHANGE THESE VALUES ###
+new.calc <- new10.4
+this.run <- 10
+this.channel <- 4
+################################
+
+new.rate <- new.calc$summary$rate[1]
+new.rsq <- new.calc$summary$rsq[1]
+
+blank <- paste0("bg_rate_resp_", this.run)
+# new background adjusted object
+new.adj <- adjust_rate(new.calc, by = get(blank)) 
+# from the background-adjusted object, pull the adjusted rate
+new.bg.adj.rate <- new.adj$summary$rate.adjusted[1]
+
+# Add qaqc value to new column based on conditions in 'run' and 'channel' columns
+resp_rates <- resp_rates %>%
+  mutate(
+    qaqc_resp_rate = ifelse(run == this.run &
+                         channel == this.channel, new.rate, qaqc_resp_rate),
+    qaqc_resp_r2 = ifelse(run == this.run &
+                       channel == this.channel, new.rsq, qaqc_resp_r2),
+    qaqc_resp_bg_adj_rate = ifelse(run == this.run &
+                       channel == this.channel, new.bg.adj.rate, qaqc_resp_bg_adj_rate)
+  )
+
+
+
+filter(resp_rates, run == this.run & channel == this.channel) %>% select("run", "channel", "treatment", "qaqc_resp_rate", "qaqc_resp_r2", "qaqc_resp_bg_adj_rate")
+```
+
+#### 10.5
+
+```{r}
+resp_run_10 %>% select('delta_t', '5') %>% drop_na() %>% 
+inspect(time = 'delta_t', oxygen = '5') %>%  auto_rate()
+```
+
+```{r}
+new10.5 <-  resp_run_10 %>%
+  inspect(time = 'delta_t', oxygen = '5') %>%
+  calc_rate(from = 0, to = 10, by = 'time')
+```
+
+```{r}
+### ONLY CHANGE THESE VALUES ###
+new.calc <- new10.5
+this.run <- 10
+this.channel <- 5
+################################
+
+new.rate <- new.calc$summary$rate[1]
+new.rsq <- new.calc$summary$rsq[1]
+
+blank <- paste0("bg_rate_resp_", this.run)
+# new background adjusted object
+new.adj <- adjust_rate(new.calc, by = get(blank)) 
+# from the background-adjusted object, pull the adjusted rate
+new.bg.adj.rate <- new.adj$summary$rate.adjusted[1]
+
+# Add qaqc value to new column based on conditions in 'run' and 'channel' columns
+resp_rates <- resp_rates %>%
+  mutate(
+    qaqc_resp_rate = ifelse(run == this.run &
+                         channel == this.channel, new.rate, qaqc_resp_rate),
+    qaqc_resp_r2 = ifelse(run == this.run &
+                       channel == this.channel, new.rsq, qaqc_resp_r2),
+    qaqc_resp_bg_adj_rate = ifelse(run == this.run &
+                       channel == this.channel, new.bg.adj.rate, qaqc_resp_bg_adj_rate)
+  )
+
+
+
+filter(resp_rates, run == this.run & channel == this.channel) %>% select("run", "channel", "treatment", "qaqc_resp_rate", "qaqc_resp_r2", "qaqc_resp_bg_adj_rate")
+```
+
+#### 10.7
+
+```{r}
+resp_run_10 %>% select('delta_t', '7') %>% drop_na() %>% 
+inspect(time = 'delta_t', oxygen = '7') %>%  auto_rate()
+```
+
+```{r}
+new10.7 <-  resp_run_10 %>%
+  inspect(time = 'delta_t', oxygen = '7') %>%
+  calc_rate(from = 0, to = 10, by = 'time')
+```
+
+```{r}
+### ONLY CHANGE THESE VALUES ###
+new.calc <- new10.7
+this.run <- 10
+this.channel <- 7
+################################
+
+new.rate <- new.calc$summary$rate[1]
+new.rsq <- new.calc$summary$rsq[1]
+
+blank <- paste0("bg_rate_resp_", this.run)
+# new background adjusted object
+new.adj <- adjust_rate(new.calc, by = get(blank)) 
+# from the background-adjusted object, pull the adjusted rate
+new.bg.adj.rate <- new.adj$summary$rate.adjusted[1]
+
+# Add qaqc value to new column based on conditions in 'run' and 'channel' columns
+resp_rates <- resp_rates %>%
+  mutate(
+    qaqc_resp_rate = ifelse(run == this.run &
+                         channel == this.channel, new.rate, qaqc_resp_rate),
+    qaqc_resp_r2 = ifelse(run == this.run &
+                       channel == this.channel, new.rsq, qaqc_resp_r2),
+    qaqc_resp_bg_adj_rate = ifelse(run == this.run &
+                       channel == this.channel, new.bg.adj.rate, qaqc_resp_bg_adj_rate)
+  )
+
+
+
+filter(resp_rates, run == this.run & channel == this.channel) %>% select("run", "channel", "treatment", "qaqc_resp_rate", "qaqc_resp_r2", "qaqc_resp_bg_adj_rate")
+```
+
+#### 11.4
+
+```{r}
+resp_run_11 %>% select('delta_t', '4') %>% drop_na() %>% 
+inspect(time = 'delta_t', oxygen = '4') %>%  auto_rate()
+```
+
+```{r}
+new11.4 <-  resp_run_11 %>%
+  inspect(time = 'delta_t', oxygen = '4') %>%
+  calc_rate(from = 25, to = 30, by = 'time')
+```
+
+```{r}
+### ONLY CHANGE THESE VALUES ###
+new.calc <- new11.4
+this.run <- 11
+this.channel <- 4
+################################
+
+new.rate <- new.calc$summary$rate[1]
+new.rsq <- new.calc$summary$rsq[1]
+
+blank <- paste0("bg_rate_resp_", this.run)
+# new background adjusted object
+new.adj <- adjust_rate(new.calc, by = get(blank)) 
+# from the background-adjusted object, pull the adjusted rate
+new.bg.adj.rate <- new.adj$summary$rate.adjusted[1]
+
+# Add qaqc value to new column based on conditions in 'run' and 'channel' columns
+resp_rates <- resp_rates %>%
+  mutate(
+    qaqc_resp_rate = ifelse(run == this.run &
+                         channel == this.channel, new.rate, qaqc_resp_rate),
+    qaqc_resp_r2 = ifelse(run == this.run &
+                       channel == this.channel, new.rsq, qaqc_resp_r2),
+    qaqc_resp_bg_adj_rate = ifelse(run == this.run &
+                       channel == this.channel, new.bg.adj.rate, qaqc_resp_bg_adj_rate)
+  )
+
+
+
+filter(resp_rates, run == this.run & channel == this.channel) %>% select("run", "channel", "treatment", "qaqc_resp_rate", "qaqc_resp_r2", "qaqc_resp_bg_adj_rate")
+```

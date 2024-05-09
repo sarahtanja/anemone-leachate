@@ -1,6 +1,6 @@
 ---
-title: "Respirometry analysis: Part 1"
-subtitle: "Pull in data and format it for use in the `respR` package"
+title: "Respirometry analysis: Part 3"
+subtitle: "Use the `respR` package to extract rates and adjust them for background signal"
 author: "Sarah Tanja"
 date: "`r format(Sys.time(), '%d %B, %Y')`"  
 format:
@@ -36,6 +36,8 @@ library(tidyverse)
 library(lubridate)
 library(respR)
 ```
+
+# Pull in 
 
 # Extract rates in `respR`
 
@@ -114,7 +116,7 @@ adjustment](https://januarharianto.github.io/respR/articles/adjust_rate.html#dyn
 >
 > ### Notes
 
-## Respirometry
+## Respiration
 
 oxygen consumption!
 
@@ -132,34 +134,59 @@ resp_rates <- data.frame(run = integer(),
 # Loop through respirometry runs
 for (i in 1:11) {
   run_num <- paste0("resp_run_", i)
-  blank <- paste0("bg_rate_resp_", i)
+  blank_run <- paste0("bg_rate_resp_run_", i)
+  
   
   # Preallocate the stored_rates data frame
   stored_rates <- data.frame(run = integer(), 
                              channel = factor(), 
                              resp_rate = numeric(), 
                              resp_r2 = numeric(),
-                             bg_rate = numeric(),
-                             resp_bg_adj_rate = numeric(),
+                             resp_bg_rate_run = numeric(),
+                             resp_bg_adj_run = numeric(),
+                             resp_bg_rate_channel = numeric(),
+                             resp_bg_adj_channel = numeric(),
+                             resp_bg_rate_mean = numeric(),
+                             resp_bg_adj_mean = numeric(),
                              stringsAsFactors = FALSE)
   
   # Loop through channels
-  stored_rates <- lapply(2:7, function(j) {
+  stored_rates <- lapply(c("1", "2", "3", "4", "5", "7"), function(j) {
+    
     df <- get(run_num) %>%
-      select(1, j) %>%
+      select("delta_t", j) %>%
       drop_na()
     
     inspected <- inspect(df, time = "delta_t", oxygen = 2)
     auto_rated <- auto_rate(inspected)
-    auto_bg_adj <- adjust_rate(auto_rated, by = get(blank))
+    
+    # adjust for background by run
+    bg_adj_run <- adjust_rate(auto_rated, 
+                              by = get(blank_run))
+    
+    # create channel object based on channel loop
+    blank_channel <- paste0("bg_rate_resp_channel_", j)
+    
+    # adjust for background by channel
+    bg_adj_channel <- adjust_rate(auto_rated,
+                                  by = get(blank_channel))
+    
+    # adjust for background by mean
+    bg_adj_mean <- adjust_rate(auto_rated, 
+                               by = bg_resp_mean, 
+                               method = "mean")
     
     # Store the results for this channel
     data.frame(run = i,
-               channel = colnames(get(run_num))[j],
+               channel = j,
                resp_rate = auto_rated$summary$rate[1],
                resp_r2 = auto_rated$summary$rsq[1],
-               resp_bg_rate = get(blank)$summary$rate.bg,
-               resp_bg_adj_rate = auto_bg_adj$summary$rate.adjusted[1],
+               resp_bg_rate_run = get(blank_run)[["rate.bg"]],
+               resp_rate_bg_adj_run = bg_adj_run$summary$rate.adjusted[1],
+               resp_bg_rate_channel = get(blank_channel)[["rate.bg.mean"]],
+               resp_rate_bg_adj_channel = bg_adj_channel$summary$rate.adjusted[1],
+               resp_bg_rate_mean = bg_resp_mean[["rate.bg.mean"]],
+               resp_rate_bg_adj_mean = bg_adj_mean$summary$rate.adjusted[1],
                stringsAsFactors = FALSE)
   })
   
@@ -169,6 +196,19 @@ for (i in 1:11) {
   # Append the results for this run to resp_rates
   resp_rates <- rbind(resp_rates, stored_rates)
 }
+
+# print resp_rates to .csv
+write.csv(resp_rates, file = "output/resp_rates.csv", row.names = FALSE)
+```
+
+```{r}
+print(bg_resp_mean[["rate.bg.mean"]])
+
+resp_run_1.2 <- resp_run_1 %>% select(1,2) %>% drop_na()
+inspected <- inspect(resp_run_1.2, time = "delta_t", oxygen = 2)
+auto_rated <- auto_rate(inspected)
+
+auto_rated$summary$rate[1]
 ```
 
 ## Photosynthesis
@@ -180,6 +220,7 @@ each respirometry chamber (in this dataset, 55 rows of treatments &
 controls with anemone specimens, and 11 with blanks for each run)
 
 ```{r}
+# Initialize the resp_rates data frame with all required columns
 phot_rates <- data.frame(run = integer(),
                          channel = factor(),
                          phot_rate = numeric(),
@@ -190,34 +231,59 @@ phot_rates <- data.frame(run = integer(),
 # Loop through respirometry runs
 for (i in 1:11) {
   run_num <- paste0("phot_run_", i)
-  blank <- paste0("bg_rate_phot_", i)
+  blank_run <- paste0("bg_rate_phot_run_", i)
+  
   
   # Preallocate the stored_rates data frame
   stored_rates <- data.frame(run = integer(), 
                              channel = factor(), 
                              phot_rate = numeric(), 
                              phot_r2 = numeric(),
-                             phot_bg_rate = numeric(),
-                             phot_bg_adj_rate = numeric(),
+                             phot_bg_rate_run = numeric(),
+                             phot_bg_adj_run = numeric(),
+                             phot_bg_rate_channel = numeric(),
+                             phot_bg_adj_channel = numeric(),
+                             phot_bg_rate_mean = numeric(),
+                             phot_bg_adj_mean = numeric(),
                              stringsAsFactors = FALSE)
   
   # Loop through channels
-  stored_rates <- lapply(2:7, function(j) {
+  stored_rates <- lapply(c("1", "2", "3", "4", "5", "7"), function(j) {
+    
     df <- get(run_num) %>%
-      select(1, j) %>%
+      select("delta_t", j) %>%
       drop_na()
     
     inspected <- inspect(df, time = "delta_t", oxygen = 2)
     auto_rated <- auto_rate(inspected)
-    auto_bg_adj <- adjust_rate(auto_rated, by = get(blank))
+    
+    # adjust for background by run
+    bg_adj_run <- adjust_rate(auto_rated, 
+                              by = get(blank_run))
+    
+    # create channel object based on channel loop
+    blank_channel <- paste0("bg_rate_phot_channel_", j)
+    
+    # adjust for background by channel
+    bg_adj_channel <- adjust_rate(auto_rated,
+                                  by = get(blank_channel))
+    
+    # adjust for background by mean
+    bg_adj_mean <- adjust_rate(auto_rated, 
+                               by = bg_phot_mean, 
+                               method = "mean")
     
     # Store the results for this channel
     data.frame(run = i,
-               channel = colnames(get(run_num))[j],
+               channel = j,
                phot_rate = auto_rated$summary$rate[1],
                phot_r2 = auto_rated$summary$rsq[1],
-               phot_bg_rate = get(blank)$summary$rate.bg,
-               phot_bg_adj_rate = auto_bg_adj$summary$rate.adjusted[1],
+               phot_bg_rate_run = get(blank_run)[["rate.bg"]],
+               phot_rate_bg_adj_run = bg_adj_run$summary$rate.adjusted[1],
+               phot_bg_rate_channel = get(blank_channel)[["rate.bg.mean"]],
+               phot_rate_bg_adj_channel = bg_adj_channel$summary$rate.adjusted[1],
+               phot_bg_rate_mean = bg_resp_mean[["rate.bg.mean"]],
+               phot_rate_bg_adj_mean = bg_adj_mean$summary$rate.adjusted[1],
                stringsAsFactors = FALSE)
   })
   
@@ -227,31 +293,25 @@ for (i in 1:11) {
   # Append the results for this run to resp_rates
   phot_rates <- rbind(phot_rates, stored_rates)
 }
+
+# print phot_rates to .csv
+write.csv(phot_rates, file = "output/phot_rates.csv", row.names = FALSE)
 ```
 
 
 # Inspect data
 
+## Respiration
 ```{r}
 hist(resp_rates$resp_rate)
+hist(resp_rates$resp_rate_bg_adj_run)
+hist(resp_rates$resp_rate_bg_adj_channel)
+hist(resp_rates$resp_rate_bg_adj_mean)
 ```
-
-```{r}
-hist(resp_rates$resp_bg_adj_rate)
-```
-
+## Photosynthesis
 ```{r}
 hist(phot_rates$phot_rate)
-```
-
-```{r}
-qqPlot(phot_rates$phot_rate)
-```
-
-```{r}
-hist(phot_rates$phot_bg_adj_rate)
-```
-
-```{r}
-qqPlot(phot_rates$phot_bg_adj_rate)
+hist(phot_rates$phot_rate_bg_adj_run)
+hist(phot_rates$phot_rate_bg_adj_channel)
+hist(phot_rates$phot_rate_bg_adj_mean)
 ```
