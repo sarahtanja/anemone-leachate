@@ -1,0 +1,154 @@
+---
+title: "Respirometry analysis: Part 2"
+subtitle: "Get background rates from the `blank` chambers"
+author: "Sarah Tanja"
+date: "`r format(Sys.time(), '%d %B, %Y')`"  
+format:
+  html:
+    df-print: paged
+    toc: true
+    toc-location: right
+    smooth-scroll: true
+    link-external-icon: true
+    link-external-newwindow: true
+    code-fold: false
+    code-tools: true
+    code-copy: true
+    highlight-style: breeze
+    code-overflow: wrap
+    theme: minty
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+# Install and load packages
+
+```{r messages = FALSE}
+# Install packages
+if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages('tidyverse')
+if ("dplyr" %in% rownames(installed.packages()) == 'FALSE') install.packages('dplyr')
+if ("lubridate" %in% rownames(installed.packages()) == 'FALSE') install.packages('lubridate')
+if ("respR" %in% rownames(installed.packages()) == 'FALSE') install.packages('respR')
+if ("car" %in% rownames(installed.packages()) == 'FALSE') install.packages('car')
+if ("kableExtra" %in% rownames(installed.packages()) == 'FALSE') install.packages('kableExtra')
+
+# Load packages
+library(dplyr)
+library(tidyverse)
+library(lubridate)
+library(respR)
+library(car)
+library(kableExtra)
+```
+
+# Load in dataframes
+
+```{r}
+# Get a list of all CSV files in your output folder
+csv_files <- list.files("output", pattern = "\\.csv$", full.names = TRUE)
+
+# Loop through each CSV file and read it into a dataframe
+for (file in csv_files) {
+  # Extract the dataframe name from the file name
+  df_name <- sub("\\.csv$", "", basename(file))
+  # Read the CSV file into a dataframe and assign it the dataframe name
+  assign(df_name, read.csv(file, check.names = FALSE))
+}
+
+# Now you'll have dataframes named after the CSV files
+# For example, if you have a file named "example.csv", you'll have a dataframe named "example"
+```
+
+```{r}
+print(resp_rates)
+```
+
+```{r}
+resp_rates <- resp_rates %>% 
+  select(-c('Date', 'RLC_start', 'RLC_end', 'RLC', 'Respirometry', 'whole_anemone', 
+            'date', 'time-resp-end', 'min-D-L', 'filename', 'ext', 'notes'))
+print(resp_rates)
+```
+## Join qaqc column back into the resp_rate column to make the resp_rate and resp_r2 'verified rate' column and r-square values
+```{r}
+resp_rates <- resp_rates %>%
+  mutate(resp_rate = coalesce(qaqc_resp_rate, resp_rate)) %>% 
+  mutate(resp_r2 = coalesce(qaqc_resp_r2, resp_r2))
+
+print(resp_rates)
+```
+
+
+
+
+
+
+```{r}
+head(rates)
+```
+
+# Merge `QAQC` rates with the well-calculated auto rates
+
+```{r}
+
+```
+
+# Normalize by wet_weight
+
+Using respR
+[convert_rate()](https://januarharianto.github.io/respR/reference/convert_rate.html)
+by mass
+
+The oxygen units are in ppm (mg/L)
+
+The mass units are in grams
+
+The time units are in decimal min
+
+The respirometer effective volume: 317mL = 0.317L
+
+```{r}
+rates <- rates %>%
+  mutate(
+    massnorm_resp_rate = convert_rate(
+      resp_rate,
+      oxy.unit = 'mg/l',
+      time.unit = 'm',
+      output.unit = 'mg/min/g',
+      volume = 0.317,
+      mass = wet_weight_g
+    )$rate.output 
+  )
+
+```
+
+```{r}
+rates <- rates %>%
+  mutate(
+    massnorm_phot_rate = convert_rate(
+      phot_rate,
+      oxy.unit = 'mg/l',
+      time.unit = 'm',
+      output.unit = 'mg/min/g',
+      volume = 0.317,
+      mass = wet_weight_g
+    )$rate.output
+  )
+```
+
+# Join the P&R rates data
+
+Join the respiration rates and photosynthesis rates dataframes
+
+```{r}
+rates <- left_join(resp_rates, phot_rates) %>% 
+  select(-c('Date', 'RLC_start', 'RLC_end', 'RLC', 'Respirometry', 'whole_anemone', 
+            'date', 'time-resp-end', 'min-D-L', 'filename', 'ext', 'notes'))
+
+print(rates)
+```
+
+```{r}
+write.csv(rates, "rates.csv", row.names = FALSE)
+```
