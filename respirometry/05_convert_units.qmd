@@ -60,6 +60,8 @@ for (file in csv_files) {
 # For example, if you have a file named "example.csv", you'll have a dataframe named "example"
 ```
 
+# Respiration
+
 ```{r}
 print(resp_rates)
 ```
@@ -70,7 +72,12 @@ resp_rates <- resp_rates %>%
             'date', 'time-resp-end', 'min-D-L', 'filename', 'ext', 'notes'))
 print(resp_rates)
 ```
-## Join qaqc column back into the resp_rate column to make the resp_rate and resp_r2 'verified rate' column and r-square values
+
+## Coalesce qaqc column back into the resp_rate column
+
+This is to make the resp_rate and resp_r2 'verified rate' column and
+r-square values
+
 ```{r}
 resp_rates <- resp_rates %>%
   mutate(resp_rate = coalesce(qaqc_resp_rate, resp_rate)) %>% 
@@ -79,22 +86,66 @@ resp_rates <- resp_rates %>%
 print(resp_rates)
 ```
 
-
-
-
-
+## Subtract the background rates by run, channel, and mean
 
 ```{r}
-head(rates)
-```
+# By run
+resp_rates <- resp_rates %>% 
+  mutate(resp_rate_bg_adj_run = resp_rate - resp_bg_rate_run) %>% 
+        relocate(resp_rate_bg_adj_run, .after = "resp_r2")
 
-# Merge `QAQC` rates with the well-calculated auto rates
+
+# By channel
+resp_rates <- resp_rates %>% 
+  mutate(resp_rate_bg_adj_channel = resp_rate - resp_bg_rate_channel) %>% 
+        relocate(resp_rate_bg_adj_channel, .after = "resp_r2")
+
+# By mean
+resp_rates <- resp_rates %>% 
+  mutate(resp_rate_bg_adj_mean = resp_rate - resp_bg_rate_mean) %>% 
+        relocate(resp_rate_bg_adj_mean, .after = "resp_r2")
+
+print(resp_rates)
+```
 
 ```{r}
+hist(resp_rates$resp_rate_bg_adj_run)
+hist(resp_rates$resp_rate_bg_adj_channel)
+hist(resp_rates$resp_rate_bg_adj_mean)
+```
+
+## Is the blank even any different?
+
+```{r}
+blank_aov <- aov(resp_rate_bg_adj_run ~ treatment,
+  data = resp_rates
+)
+
+summary(blank_aov)
 
 ```
 
-# Normalize by wet_weight
+```{r}
+ggplot(resp_rates) +
+  aes(x = treatment, y = resp_rate_bg_adj_run, fill= treatment) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+   labs(
+    title = "Concentration vs. Respiration",
+    x = "Leachate concentration (mg/L)",
+    y = "Respiration"
+  )
+```
+
+::: callout-warning
+The metabolic signature of the filtered seawater is overpowering the
+signature of the anemones. This data is invalid. In order to get valid
+respirometry data, we may need to run respirometry for 24-hours,
+possibly using artificial seawater to ensure no interference by
+microbes.
+:::
+
+## Normalize by wet_weight
 
 Using respR
 [convert_rate()](https://januarharianto.github.io/respR/reference/convert_rate.html)
@@ -109,32 +160,170 @@ The time units are in decimal min
 The respirometer effective volume: 317mL = 0.317L
 
 ```{r}
-rates <- rates %>%
+resp_rates <- resp_rates %>%
   mutate(
-    massnorm_resp_rate = convert_rate(
-      resp_rate,
+    resp_rate_adj_run_norm =
+      convert_rate(
+      resp_rate_bg_adj_run,
       oxy.unit = 'mg/l',
       time.unit = 'm',
       output.unit = 'mg/min/g',
       volume = 0.317,
       mass = wet_weight_g
     )$rate.output 
+  ) %>% 
+  relocate(resp_rate_adj_run_norm, .after = resp_rate_bg_adj_run) 
+
+print(resp_rates)
+
+```
+
+## Filter out blank
+
+```{r}
+resp_rates <- resp_rates %>% filter(id != "blank")
+resp_rates
+hist(resp_rates$resp_rate_adj_run_norm)
+```
+
+```{r}
+ggplot(resp_rates) +
+  aes(x = treatment, y = resp_rate_adj_run_norm, fill= treatment) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+   labs(
+    title = "Concentration vs. Respiration",
+    x = "Leachate concentration (mg/L)",
+    y = "Respiration (mg/min/g)"
   )
 
 ```
 
+# Photosynthesis
+
 ```{r}
-rates <- rates %>%
+phot_rates <- phot_rates %>% 
+  select(-c('Date', 'RLC_start', 'RLC_end', 'RLC', 'Respirometry','whole_anemone','date', 'time-resp-end', 'min-D-L', 'filename', 'ext', 'notes'))
+print(phot_rates)
+```
+
+## Coalesce qaqc column back into phot_rates column
+
+```{r}
+phot_rates <- phot_rates %>%
+  mutate(phot_rate = coalesce(qaqc_phot_rate, phot_rate)) %>% 
+  mutate(phot_r2 = coalesce(qaqc_phot_r2, phot_r2))
+
+print(phot_rates)
+```
+
+## Subtract the background rates by run, channel, and mean
+
+```{r}
+# By run
+phot_rates <- phot_rates %>% 
+  mutate(phot_rate_bg_adj_run = phot_rate - phot_bg_rate_run) %>% 
+        relocate(phot_rate_bg_adj_run, .after = "phot_r2")
+
+
+# By channel
+phot_rates <- phot_rates %>% 
+  mutate(phot_rate_bg_adj_channel = phot_rate - phot_bg_rate_channel) %>% 
+        relocate(phot_rate_bg_adj_channel, .after = "phot_r2")
+
+# By mean
+phot_rates <- phot_rates %>% 
+  mutate(phot_rate_bg_adj_mean = phot_rate - phot_bg_rate_mean) %>% 
+        relocate(phot_rate_bg_adj_mean, .after = "phot_r2")
+
+print(phot_rates)
+```
+
+## Is the blank even any different?
+
+```{r}
+blank_aov <- aov(phot_rate_bg_adj_run ~ treatment,
+  data = phot_rates
+)
+
+summary(blank_aov)
+
+```
+
+```{r}
+ggplot(phot_rates) +
+  aes(x = treatment, y = phot_rate_bg_adj_run, fill= treatment) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+   labs(
+    title = "Concentration vs. Photosynthesis",
+    x = "Leachate concentration (mg/L)",
+    y = "Photosynthesis"
+  )
+```
+
+::: callout-warning
+The same issue persists with the data. There is no signature of
+photosynthesis from the symbiotic B. muscatinei, the data is 'washed
+out' by the background or 'blank'.
+:::
+
+## Normalize by wet_weight
+
+```{r}
+phot_rates <- phot_rates %>%
   mutate(
-    massnorm_phot_rate = convert_rate(
-      phot_rate,
+    phot_rate_adj_run_norm = as.numeric(
+      convert_rate(
+      phot_rate_bg_adj_run,
       oxy.unit = 'mg/l',
       time.unit = 'm',
       output.unit = 'mg/min/g',
       volume = 0.317,
       mass = wet_weight_g
-    )$rate.output
+    )$rate.output 
+  )) %>% 
+  relocate(phot_rate_adj_run_norm, .after = phot_rate_bg_adj_run) 
+
+print(phot_rates)
+```
+
+## Filter out blank
+
+```{r}
+phot_rates <- phot_rates %>% filter(id != "blank")
+phot_rates
+hist(phot_rates$phot_rate_adj_run_norm)
+```
+
+## Calculate gross photosynthesis
+
+```{r}
+phot_rates <- phot_rates %>% mutate(gross_photosynthesis = phot_rate_adj_run_norm - resp_rates$resp_rate_adj_run_norm)
+```
+
+```{r}
+hist(phot_rates$gross_photosynthesis)
+```
+
+```{r}
+ggplot(phot_rates) +
+  aes(x = treatment, y = gross_photosynthesis, fill= treatment) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+   labs(
+    title = "Concentration vs. Gross Photosynthesis",
+    x = "Leachate concentration (mg/L)",
+    y = "Gross Photosynthesis"
   )
+```
+
+```{r}
+gp_aov <- aov(gross_photosynthesis ~ treatment,
+  data = phot_rates
+)
+
+summary(gp_aov)
 ```
 
 # Join the P&R rates data
@@ -143,8 +332,16 @@ Join the respiration rates and photosynthesis rates dataframes
 
 ```{r}
 rates <- left_join(resp_rates, phot_rates) %>% 
-  select(-c('Date', 'RLC_start', 'RLC_end', 'RLC', 'Respirometry', 'whole_anemone', 
-            'date', 'time-resp-end', 'min-D-L', 'filename', 'ext', 'notes'))
+    mutate(respiration = resp_rate_adj_run_norm,
+         net_photosynthesis = phot_rate_adj_run_norm) %>% 
+  select(c('id',
+           'treatment', 
+           'run', 
+           'channel',
+           'respiration',
+           'net_photosynthesis',
+           'gross_photosynthesis')) %>% 
+
 
 print(rates)
 ```
