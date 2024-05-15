@@ -46,12 +46,13 @@ Anemone treatments are the variables
 
 # How to do it
 
-#install tidyverse, dplyr, car and load
+# install tidyverse, dplyr, car and load
 
 ```{r}
 if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages('tidyverse')
 if ("dplyr" %in% rownames(installed.packages()) == 'FALSE') install.packages('dplyr')
 if ("car" %in% rownames(installed.packages()) == 'FALSE') install.packages('car')
+if ("ggplot2" %in% rownames(installed.packages()) == 'FALSE') install.packages('ggplot2')
 
 library(dplyr)
 library(tidyverse)
@@ -59,24 +60,19 @@ library(car)
 library(ggplot2)
 ```
 
-```{r}
-install.packages("ggplot2")
-```
-
-```{r}
-library(ggplot2)
-```
+# Read in data
 
 ```{r}
 rates <- read.csv('rates.csv')
 
+print(rates)
 ```
 
-#Respiration
+# Respiration
 
 ```{r}
 ggplot(rates) +
-  aes(x = treatment, y = massnorm_resp_rate, color = treatment) +
+  aes(x = treatment, y = respiration, color = treatment) +
   geom_jitter() +
   theme(legend.position = "none")
 ```
@@ -84,7 +80,7 @@ ggplot(rates) +
 ## Data normality
 
 ```{r}
-resp_aov <-  aov(massnorm_resp_rate ~ treatment, data = rates)
+resp_aov <-  aov(respiration ~ treatment, data = rates)
 ```
 
 ```{r}
@@ -103,16 +99,28 @@ qqPlot(resp_aov$residuals,
 
 ```{r}
 ggplot(rates) +
-  aes(x = treatment, y = massnorm_resp_rate, fill = treatment) +
+  aes(x = treatment, y = respiration, fill = treatment) +
   geom_boxplot() +  
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(
     title = "Concentration vs. Respiration Rate",
     x = "Leachate concentration (mg/L)",
-    y = "Respiration Rate"
+    y = expression("Respiration Rate (mg O2/min/g) x"~10^-5)
   ) +
+  scale_y_continuous(
+labels = function(x) x / 1e-5 # Transform the y-axis labels
+) +
   scale_x_discrete(labels = c("Control ", "PPa 0.01", "PPa 0.1","PPa 1", "PPa 10", "PPa 100","PVC 0.01", "PVC 0.1", "PVC 1", "PVC 10", "PVC 100")) +  
-  scale_fill_manual(values = c("seashell", "coral", "coral1","coral2","coral3", "coral4","dodgerblue","dodgerblue1","dodgerblue2", "dodgerblue3","dodgerblue4")) 
+  scale_fill_manual(values = c("seashell", "coral", "coral1","coral2","coral3", "coral4","dodgerblue","dodgerblue1","dodgerblue2", "dodgerblue3","dodgerblue4")) +
+  theme(
+plot.title = element_text(size = 20, face = "bold"), # Title text size
+axis.title.x = element_text(size = 16), # X-axis title text size
+axis.title.y = element_text(size = 16), # Y-axis title text size
+axis.text.x = element_text(size = 14), # X-axis text size
+axis.text.y = element_text(size = 14), # Y-axis text size
+legend.title = element_text(size = 16), # Legend title text size
+legend.text = element_text(size = 14) # Legend text size
+)
 ```
 
 ## ANOVA
@@ -180,7 +188,6 @@ phot_aov <- aov(massnorm_phot_rate ~ treatment,
 summary(phot_aov)
 ```
 
-
 ## Hypothesis
 
 ```{r}
@@ -203,6 +210,7 @@ hyp <- data.frame(respiration = respiration, treatment = treatment)
 # Print dataframe
 print(hyp)
 ```
+
 ```{r}
 # Convert treatment to a factor with desired levels order
 hyp$treatment <- factor(hyp$treatment, levels = c('control', 'low', 'high'))
@@ -237,7 +245,6 @@ ggplot(newmeta) +
 
 ```
 
-
 ```{r}
 fvfm_aov <- aov(Fv_Fm ~ treatment,
   data = newmeta
@@ -246,4 +253,3 @@ fvfm_aov <- aov(Fv_Fm ~ treatment,
 summary(fvfm_aov)
 
 ```
-
