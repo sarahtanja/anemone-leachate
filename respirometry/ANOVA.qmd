@@ -247,3 +247,88 @@ summary(fvfm_aov)
 
 ```
 
+
+
+```{r}
+# Generate some fake data
+set.seed(123)
+low <- rnorm(50, mean = 10, sd = 2)
+medium <- rnorm(50, mean = 15, sd = 2)
+high <- rnorm(50, mean = 20, sd = 2)
+
+# Combine the data
+data <- data.frame(
+  Respiration_Rate = c(low, medium, high),
+  Leachate_Concentration = rep(c("Low", "Medium", "High"), each = 50)
+)
+
+data$Leachate_Concentration <- factor(data$Leachate_Concentration, levels = c("Low", "Medium", "High"))
+
+# Create boxplot
+boxplot(Respiration_Rate ~ Leachate_Concentration, data = data, 
+        xlab = "Leachate Concentration", ylab = "Respiration Rate", 
+        col = c("lightblue", "purple", "lightcoral"),
+        main = "Respiration hypothesis")
+
+```
+```{r}
+# Load ggplot2 library
+library(ggplot2)
+
+# Generate some fake data
+set.seed(123)
+high <- rnorm(50, mean = 10, sd = 2)
+medium <- rnorm(50, mean = 15, sd = 2)
+low <- rnorm(50, mean = 20, sd = 2)
+
+# Combine the data
+data <- data.frame(
+  Respiration_Rate = c(low, medium, high),
+  Leachate_Concentration = rep(c("Low", "Medium", "High"), each = 50)
+)
+
+# Reverse the order of levels for Leachate_Concentration
+data$Leachate_Concentration <- factor(data$Leachate_Concentration, levels = c("Low", "Medium", "High"))
+
+# Create ggplot
+ggplot(data, aes(x = Leachate_Concentration, y = Respiration_Rate, fill = Leachate_Concentration)) +
+  geom_boxplot() +
+  labs(x = "Leachate Concentration", y = "Photosynthetic Rate",
+       title = "Photosynthetic Effeciency vs. Leachate Concentration") +
+  scale_fill_brewer(palette = "Set2", breaks = rev(levels(data$Leachate_Concentration)),
+                    labels = c("High" = "High", "Medium" = "Medium", "Low" = "Low")) +
+  theme_minimal()
+
+
+```
+```{r}
+#Load ggplot2 library
+library(ggplot2)
+
+# Generate some fake data
+set.seed(123)
+low <- rnorm(50, mean = 10, sd = 2)
+medium <- rnorm(50, mean = 15, sd = 2)
+high <- rnorm(50, mean = 20, sd = 2)
+
+# Combine the data
+data <- data.frame(
+  Respiration_Rate = c(low, medium, high),
+  Leachate_Concentration = rep(c("Low", "Medium", "High"), each = 50)
+)
+
+data$Leachate_Concentration <- factor(data$Leachate_Concentration, levels = c("Low", "Medium", "High"))
+
+
+# Create ggplot
+ggplot(data, aes(x = Leachate_Concentration, y = Respiration_Rate, fill = Leachate_Concentration)) +
+  geom_boxplot() +
+  labs(x = "Leachate Concentration", y = "Respiration Rate",
+       title = "Respiration Rate vs. Leachate Concentration") +
+  scale_fill_brewer(palette = "Set2", breaks = rev(levels(data$Leachate_Concentration)),
+                    labels = c("Low" = "Low", "Medium" = "Medium", "High" = "High")) +
+  theme_minimal()
+
+
+```
+
