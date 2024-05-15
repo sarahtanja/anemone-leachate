@@ -279,6 +279,9 @@ boxplot(Respiration_Rate ~ Leachate_Concentration, data = data,
         main = "Respiration hypothesis")
 
 ```
+
+# Hypothesis plots 
+
 ```{r}
 # Load ggplot2 library
 library(ggplot2)
@@ -309,6 +312,7 @@ ggplot(data, aes(x = Leachate_Concentration, y = Respiration_Rate, fill = Leacha
 
 
 ```
+
 ```{r}
 #Load ggplot2 library
 library(ggplot2)
