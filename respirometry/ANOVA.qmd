@@ -126,7 +126,7 @@ legend.text = element_text(size = 14) # Legend text size
 ## ANOVA
 
 ```{r}
-resp_aov <- aov(massnorm_resp_rate ~ treatment,
+resp_aov <- aov(respiration ~ treatment,
   data = rates
 )
 
@@ -139,7 +139,7 @@ summary(resp_aov)
 
 ```{r}
 ggplot(rates) +
-  aes(x = treatment, y = massnorm_phot_rate, color = treatment) +
+  aes(x = treatment, y = respiration, color = treatment) +
   geom_jitter() +
   theme(legend.position = "none")
 ```
@@ -147,7 +147,7 @@ ggplot(rates) +
 ## Data normality
 
 ```{r}
-res_aov <-  aov(massnorm_phot_rate ~ treatment, data = rates)
+res_aov <-  aov(respiration ~ treatment, data = rates)
 ```
 
 ```{r}
@@ -166,13 +166,13 @@ qqPlot(res_aov$residuals,
 
 ```{r}
 ggplot(rates) +
-  aes(x = treatment, y = massnorm_phot_rate, fill= treatment) +
+  aes(x = treatment, y = respiration, fill= treatment) +
   geom_boxplot() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
    labs(
     title = "Concentration vs. Photosynthesis Rate",
     x = "Leachate concentration (mg/L)",
-    y = "Photosynthesis Rate"
+    y = "Photosynthesis Rate (mg O2/min/g)"
   ) +
   scale_x_discrete(labels = c("Control ", "PPa 0.01", "PPa 0.1","PPa 1", "PPa 10", "PPa 100","PVC 0.01", "PVC 0.1", "PVC 1", "PVC 10", "PVC 100")) +  
   scale_fill_manual(values = c("seashell", "coral", "coral1","coral2","coral3", "coral4","dodgerblue","dodgerblue1","dodgerblue2", "dodgerblue3","dodgerblue4")) 
@@ -222,7 +222,7 @@ ggplot(hyp) +
    labs(
     title = "Concentration vs. Respiration Rate",
     x = "Leachate concentration (mg/L)",
-    y = "Respiration Rate"
+    y = "Respiration Rate (mg O2/min/g)"
   )
 ```
 
@@ -240,7 +240,7 @@ ggplot(newmeta) +
    labs(
     title = "Concentration vs. Photosynthetic efficiency",
     x = "Leachate concentration (mg/L)",
-    y = "Photosynthetic efficiency"
+    y = "Photosynthetic efficiency (mg O2/min/g)"
   )
 
 ```
