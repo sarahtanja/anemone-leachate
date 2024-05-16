@@ -240,9 +240,19 @@ ggplot(newmeta) +
    labs(
     title = "Concentration vs. Photosynthetic efficiency",
     x = "Leachate concentration (mg/L)",
-    y = "Photosynthetic efficiency"
-  )
-
+    y = "Photosynthetic efficiency (Fv/Fm)"
+  ) + 
+  scale_x_discrete(labels = c("Control ", "PPa 0.01", "PPa 0.1","PPa 1", "PPa 10", "PPa 100","PVC 0.01", "PVC 0.1", "PVC 1", "PVC 10", "PVC 100")) +  
+  scale_fill_manual(values = c("seashell", "coral", "coral1","coral2","coral3", "coral4","dodgerblue","dodgerblue1","dodgerblue2", "dodgerblue3","dodgerblue4")) +
+  theme(
+plot.title = element_text(size = 20, face = "bold"), # Title text size
+axis.title.x = element_text(size = 16), # X-axis title text size
+axis.title.y = element_text(size = 16), # Y-axis title text size
+axis.text.x = element_text(size = 14), # X-axis text size
+axis.text.y = element_text(size = 14), # Y-axis text size
+legend.title = element_text(size = 16), # Legend title text size
+legend.text = element_text(size = 14) # Legend text size
+)
 ```
 
 ```{r}
@@ -253,9 +263,6 @@ fvfm_aov <- aov(Fv_Fm ~ treatment,
 summary(fvfm_aov)
 
 ```
-
-
-
 
 ```{r}
 # Generate some fake data
@@ -279,6 +286,7 @@ boxplot(Respiration_Rate ~ Leachate_Concentration, data = data,
         main = "Respiration hypothesis")
 
 ```
+
 ```{r}
 # Load ggplot2 library
 library(ggplot2)
@@ -309,6 +317,7 @@ ggplot(data, aes(x = Leachate_Concentration, y = Respiration_Rate, fill = Leacha
 
 
 ```
+
 ```{r}
 #Load ggplot2 library
 library(ggplot2)
@@ -339,4 +348,3 @@ ggplot(data, aes(x = Leachate_Concentration, y = Respiration_Rate, fill = Leacha
 
 
 ```
-

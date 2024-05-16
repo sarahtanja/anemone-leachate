@@ -28,16 +28,13 @@ editor:
 if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages('tidyverse')
 if ("dplyr" %in% rownames(installed.packages()) == 'FALSE') install.packages('dplyr')
 if ("lubridate" %in% rownames(installed.packages()) == 'FALSE') install.packages('lubridate')
-if ("respR" %in% rownames(installed.packages()) == 'FALSE') install.packages('respR')
-if ("openai" %in% rownames(installed.packages()) == 'FALSE') install.packages('openai')
+if ("stringr" %in% rownames(installed.packages()) == 'FALSE') install.packages('stringr')
 
 # Load packages
 library(dplyr)
 library(tidyverse)
 library(lubridate)
-library(respR)
-library(openai)
-
+library(stringr)
 ```
 
 # Pull in metadata
@@ -47,83 +44,237 @@ nem_metadata <- read_csv("../metadata/nem_metadata.csv")
 
 # Pull in data
 ```{r}
-rlc_og <- read_csv("data/ALL55_anemones_RLSs_26APR2024.csv")
+rlc <- read_csv("data/ALL55_anemones_RLSs_26APR2024.csv")
 ```
 
 # Make empty dataframe of desired format
 
 ```{r}
-photobot <- data.frame(c(
-  'id' = , 
-  'treatment',
-  'alpha',
-  'rETRmax',
-  'Ik',
-  'FvFm'))
+photobot <- data.frame(
+  id = character(), 
+  treatment = character(),
+  alpha = numeric(),
+  rETRmax = numeric(),
+  Ik = numeric(),
+  FvFm = numeric(),
+  stringsAsFactors = FALSE)
 ```
 
 
-# Fill in the dataframe values with values from the rlc data
-
-```{r}
-rlc <- rlc_og %>% filter(!is.na(No.))
-```
+# Filter data
 
 ```{r}
 # Join metadata with data by matching "No." to "RLC_start"
 rlc_mer <- left_join(rlc, nem_metadata, by = c("No." = "RLC_start")) 
 
 # Bring the "RLC_start" column back in by re-joining to the metadata
-rlc_merged <- left_join(rlc_mer, nem_metadata)
+rlc_merged <- left_join(rlc_mer, nem_metadata) 
 
+rlc_merged <- rlc_merged %>% relocate (RLC_start, .before = RLC_end)
 ```
 
+# Fill data
+```{r}
+
+rlc_fill <- rlc_merged %>% 
+  filter(Type %in% c("REG2", "FO")) %>% 
+  fill(treatment, .direction = "up") %>% 
+  fill(id, .direction = "up") %>% 
+  fill(No., .direction = "up")%>% 
+  fill("1:Fv/Fm", .direction = "up") %>% 
+  filter(No. == lead(RLC_start)) %>% 
+  select(No., "1:F","1:Fv/Fm", id, treatment )
+
+rlc_fill
+```
+
+## Check that there are 55 rows, with 11 treatments that each have 5 replicates of each 
 
 ```{r}
-rlc_merged_filter <- rlc_merged %>% 
-  filter(No. >= 55 & No. <= 67)
+# Get unique treatments and count occurrences of each
+table(rlc_fill$treatment) # there should be 5 of each
+table(rlc_fill$id) # there should be 1 of each
+```
+
+## Extract alpha, ETRm, & Ik values
+
+```{r}
+# Define a regex pattern to extract alpha, ETRm, and Ik values
+regex <- "alpha: ([\\d.-]+), ETRm: ([\\d.-]+), Ik: ([\\d.-]+)"
+
+# Extract the rows that match the pattern
+photobot_results <- rlc_fill %>%
+  mutate(match = str_extract(`1:F`, regex)) %>%
+  filter(!is.na(match)) %>%
+  mutate(alpha = str_extract(match, "(?<=alpha: )[\\d.-]+"),
+         ETRm = str_extract(match, "(?<=ETRm: )[\\d.-]+"),
+         Ik = str_extract(match, "(?<=Ik: )[\\d.-]+")) %>%
+  select(id, treatment, "1:Fv/Fm", alpha, ETRm, Ik)
+
+# rename FvFm & make numeric
+photobot_results <- photobot_results %>% 
+  rename(FvFm = "1:Fv/Fm") 
+
+photobot_results <- photobot_results %>% 
+  mutate(alpha = as.numeric(alpha)) %>% 
+  mutate(ETRm = as.numeric(ETRm)) %>% 
+  mutate(Ik = as.numeric(Ik))
+
+print(photobot_results)
+
+```
+# Fv/Fm
+```{r}
+fvfm_aov <- aov(FvFm ~ treatment,
+  data = photobot_results
+)
+
+summary(fvfm_aov)
 ```
 
 ```{r}
-# Create an empty list to store filtered dataframe
-rlc_list <- list()
-
-# Loop through each row
-for (i in 1:nrow(rlc_merged)){
-  start <- rlc_merged$RLC_start[i]
-  end <- rlc_merged$RLC_end[i]
-  
-  # skip if RLC_start or RLC_end is NA
-  if(is.na(start) || is.na(end)) next
-  
-  #
-  if (start == rlc_merged$No.[i]){
-    rlc_filtered <- rlc_merged %>% 
-      filter(No. >= start & No. <= end)
-    
-    # Store the filtered dataframe in the list
-    rlc_list[[length(rlc_list) + 1]] <- rlc_list
-  }
-}
-
-
+ggplot(photobot_results) +
+  aes(x = treatment, y = FvFm, fill= treatment) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+   labs(
+    title = "Concentration vs. Photosynthetic efficiency (Fv/Fm)",
+    x = "Leachate concentration (mg/L)",
+    y = "Photosynthetic efficiency (Fv/Fm)"
+  ) +
+  scale_x_discrete(labels = c("Control ", "PPa 0.01", "PPa 0.1","PPa 1", "PPa 10", "PPa 100","PVC 0.01", "PVC 0.1", "PVC 1", "PVC 10", "PVC 100")) +  
+  scale_fill_manual(values = c("seashell", "coral", "coral1","coral2","coral3", "coral4","dodgerblue","dodgerblue1","dodgerblue2", "dodgerblue3","dodgerblue4")) 
 ```
 
 
-
-
-
-
+# alpha
 ```{r}
-# A function to filter dataframe based on RLC_start and RLC_stop
-filter_range <- function(start, end, data) {
-  data %>% 
-    filter('No.' >= start & 'No.' <= end)
-}
+alpha_aov <- aov(alpha ~ treatment,
+  data = photobot_results
+)
 
+summary(alpha_aov)
 ```
 
 ```{r}
-rlc_list <- map2(rlc_merged$RLC_start, rlc_merged$RLC_end, ~ filter_range(.x, .y, rlc_merged))
+ggplot(photobot_results) +
+  aes(x = treatment, y = alpha, fill= treatment) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+   labs(
+    title = "Concentration vs. Alpha",
+    x = "Leachate concentration (mg/L)",
+    y = "Alpha"
+  ) +
+  scale_x_discrete(labels = c("Control ", "PPa 0.01", "PPa 0.1","PPa 1", "PPa 10", "PPa 100","PVC 0.01", "PVC 0.1", "PVC 1", "PVC 10", "PVC 100")) +  
+  scale_fill_manual(values = c("seashell", "coral", "coral1","coral2","coral3", "coral4","dodgerblue","dodgerblue1","dodgerblue2", "dodgerblue3","dodgerblue4")) 
 ```
+## PVC only?
+```{r}
+photobot_pvc <- photobot_results %>% 
+  filter(treatment %in% c('Control', 'PVC_0.01_mgL', 'PVC_0.1_mgL', 'PVC_1_mgL', 'PVC_10_mgL', 'PVC_100_mgL'))
+
+photobot_pvc
+```
+
+```{r}
+alpha_pvc_aov <- aov(alpha ~ treatment,
+  data = photobot_pvc
+)
+
+summary(alpha_pvc_aov)
+```
+
+```{r}
+ggplot(photobot_pvc) +
+  aes(x = treatment, y = alpha, fill= treatment) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+   labs(
+    title = "Concentration vs. Alpha",
+    x = "Leachate concentration (mg/L)",
+    y = "Alpha"
+  ) +
+  scale_x_discrete(labels = c("Control ", "PVC 0.01", "PVC 0.1", "PVC 1", "PVC 10", "PVC 100")) +  
+  scale_fill_manual(values = c("seashell", "dodgerblue","dodgerblue1","dodgerblue2", "dodgerblue3","dodgerblue4")) 
+```
+
+## PP only?
+```{r}
+photobot_pp <- photobot_results %>% 
+  filter(treatment %in% c('Control', 'PP_A_0.01_mgL', 'PP_A_0.1_mgL', 'PP_A_1_mgL', 'PP_A_10_mgL', 'PP_A_100_mgL'))
+
+photobot_pp
+```
+```{r}
+alpha_pp_aov <- aov(alpha ~ treatment,
+  data = photobot_pp
+)
+
+summary(alpha_pp_aov)
+```
+
+```{r}
+ggplot(photobot_pp) +
+  aes(x = treatment, y = alpha, fill= treatment) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+   labs(
+    title = "Concentration vs. Alpha",
+    x = "Leachate concentration (mg/L)",
+    y = "Alpha"
+  ) +
+  scale_x_discrete(labels = c("Control ", "PPa 0.01", "PPa 0.1","PPa 1", "PPa 10", "PPa 100")) +  
+  scale_fill_manual(values = c("seashell", "coral", "coral1","coral2","coral3", "coral4"))
+```
+
+
+# ETRm
+```{r}
+etrm_aov <- aov(ETRm ~ treatment,
+  data = photobot_results
+)
+
+summary(etrm_aov)
+```
+
+```{r}
+ggplot(photobot_results) +
+  aes(x = treatment, y = ETRm, fill= treatment) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+   labs(
+    title = "Concentration vs. rETRm",
+    x = "Leachate concentration (mg/L)",
+    y = "rETRm"
+  ) +
+  scale_x_discrete(labels = c("Control ", "PPa 0.01", "PPa 0.1","PPa 1", "PPa 10", "PPa 100","PVC 0.01", "PVC 0.1", "PVC 1", "PVC 10", "PVC 100")) +  
+  scale_fill_manual(values = c("seashell", "coral", "coral1","coral2","coral3", "coral4","dodgerblue","dodgerblue1","dodgerblue2", "dodgerblue3","dodgerblue4"))
+```
+
+
+# Ik
+```{r}
+ik_aov <- aov(Ik ~ treatment,
+  data = photobot_results
+)
+
+summary(ik_aov)
+```
+
+```{r}
+ggplot(photobot_results) +
+  aes(x = treatment, y = Ik, fill= treatment) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+   labs(
+    title = "Leachate concentration vs. Saturating Irradiance (Ik)",
+    x = "Leachate concentration (mg/L)",
+    y = "Saturating Irradiance (PAR umol/m2/s)"
+  ) +
+  scale_x_discrete(labels = c("Control ", "PPa 0.01", "PPa 0.1","PPa 1", "PPa 10", "PPa 100","PVC 0.01", "PVC 0.1", "PVC 1", "PVC 10", "PVC 100")) +  
+  scale_fill_manual(values = c("seashell", "coral", "coral1","coral2","coral3", "coral4","dodgerblue","dodgerblue1","dodgerblue2", "dodgerblue3","dodgerblue4"))
+```
+What the hell is wrong with the control!?
+
 
