@@ -46,12 +46,13 @@ Anemone treatments are the variables
 
 # How to do it
 
-#install tidyverse, dplyr, car and load
+# install tidyverse, dplyr, car and load
 
 ```{r}
 if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages('tidyverse')
 if ("dplyr" %in% rownames(installed.packages()) == 'FALSE') install.packages('dplyr')
 if ("car" %in% rownames(installed.packages()) == 'FALSE') install.packages('car')
+if ("ggplot2" %in% rownames(installed.packages()) == 'FALSE') install.packages('ggplot2')
 
 library(dplyr)
 library(tidyverse)
@@ -59,24 +60,19 @@ library(car)
 library(ggplot2)
 ```
 
-```{r}
-install.packages("ggplot2")
-```
-
-```{r}
-library(ggplot2)
-```
+# Read in data
 
 ```{r}
 rates <- read.csv('rates.csv')
 
+print(rates)
 ```
 
-#Respiration
+# Respiration
 
 ```{r}
 ggplot(rates) +
-  aes(x = treatment, y = massnorm_resp_rate, color = treatment) +
+  aes(x = treatment, y = respiration, color = treatment) +
   geom_jitter() +
   theme(legend.position = "none")
 ```
@@ -84,7 +80,7 @@ ggplot(rates) +
 ## Data normality
 
 ```{r}
-resp_aov <-  aov(massnorm_resp_rate ~ treatment, data = rates)
+resp_aov <-  aov(respiration ~ treatment, data = rates)
 ```
 
 ```{r}
@@ -103,22 +99,34 @@ qqPlot(resp_aov$residuals,
 
 ```{r}
 ggplot(rates) +
-  aes(x = treatment, y = massnorm_resp_rate, fill = treatment) +
+  aes(x = treatment, y = respiration, fill = treatment) +
   geom_boxplot() +  
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(
     title = "Concentration vs. Respiration Rate",
     x = "Leachate concentration (mg/L)",
-    y = "Respiration Rate"
+    y = expression("Respiration Rate (mg O2/min/g) x"~10^-5)
   ) +
+  scale_y_continuous(
+labels = function(x) x / 1e-5 # Transform the y-axis labels
+) +
   scale_x_discrete(labels = c("Control ", "PPa 0.01", "PPa 0.1","PPa 1", "PPa 10", "PPa 100","PVC 0.01", "PVC 0.1", "PVC 1", "PVC 10", "PVC 100")) +  
-  scale_fill_manual(values = c("seashell", "coral", "coral1","coral2","coral3", "coral4","dodgerblue","dodgerblue1","dodgerblue2", "dodgerblue3","dodgerblue4")) 
+  scale_fill_manual(values = c("seashell", "coral", "coral1","coral2","coral3", "coral4","dodgerblue","dodgerblue1","dodgerblue2", "dodgerblue3","dodgerblue4")) +
+  theme(
+plot.title = element_text(size = 20, face = "bold"), # Title text size
+axis.title.x = element_text(size = 16), # X-axis title text size
+axis.title.y = element_text(size = 16), # Y-axis title text size
+axis.text.x = element_text(size = 14), # X-axis text size
+axis.text.y = element_text(size = 14), # Y-axis text size
+legend.title = element_text(size = 16), # Legend title text size
+legend.text = element_text(size = 14) # Legend text size
+)
 ```
 
 ## ANOVA
 
 ```{r}
-resp_aov <- aov(massnorm_resp_rate ~ treatment,
+resp_aov <- aov(respiration ~ treatment,
   data = rates
 )
 
@@ -131,7 +139,7 @@ summary(resp_aov)
 
 ```{r}
 ggplot(rates) +
-  aes(x = treatment, y = massnorm_phot_rate, color = treatment) +
+  aes(x = treatment, y = respiration, color = treatment) +
   geom_jitter() +
   theme(legend.position = "none")
 ```
@@ -139,7 +147,7 @@ ggplot(rates) +
 ## Data normality
 
 ```{r}
-res_aov <-  aov(massnorm_phot_rate ~ treatment, data = rates)
+res_aov <-  aov(respiration ~ treatment, data = rates)
 ```
 
 ```{r}
@@ -158,13 +166,13 @@ qqPlot(res_aov$residuals,
 
 ```{r}
 ggplot(rates) +
-  aes(x = treatment, y = massnorm_phot_rate, fill= treatment) +
+  aes(x = treatment, y = respiration, fill= treatment) +
   geom_boxplot() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
    labs(
     title = "Concentration vs. Photosynthesis Rate",
     x = "Leachate concentration (mg/L)",
-    y = "Photosynthesis Rate"
+    y = "Photosynthesis Rate (mg O2/min/g)"
   ) +
   scale_x_discrete(labels = c("Control ", "PPa 0.01", "PPa 0.1","PPa 1", "PPa 10", "PPa 100","PVC 0.01", "PVC 0.1", "PVC 1", "PVC 10", "PVC 100")) +  
   scale_fill_manual(values = c("seashell", "coral", "coral1","coral2","coral3", "coral4","dodgerblue","dodgerblue1","dodgerblue2", "dodgerblue3","dodgerblue4")) 
@@ -179,7 +187,6 @@ phot_aov <- aov(massnorm_phot_rate ~ treatment,
 
 summary(phot_aov)
 ```
-
 
 ## Hypothesis
 
@@ -203,6 +210,7 @@ hyp <- data.frame(respiration = respiration, treatment = treatment)
 # Print dataframe
 print(hyp)
 ```
+
 ```{r}
 # Convert treatment to a factor with desired levels order
 hyp$treatment <- factor(hyp$treatment, levels = c('control', 'low', 'high'))
@@ -214,7 +222,7 @@ ggplot(hyp) +
    labs(
     title = "Concentration vs. Respiration Rate",
     x = "Leachate concentration (mg/L)",
-    y = "Respiration Rate"
+    y = "Respiration Rate (mg O2/min/g)"
   )
 ```
 
@@ -232,11 +240,21 @@ ggplot(newmeta) +
    labs(
     title = "Concentration vs. Photosynthetic efficiency",
     x = "Leachate concentration (mg/L)",
-    y = "Photosynthetic efficiency"
-  )
+    y = "Photosynthetic efficiency (Fv/Fm)"
+  ) + 
+  scale_x_discrete(labels = c("Control ", "PPa 0.01", "PPa 0.1","PPa 1", "PPa 10", "PPa 100","PVC 0.01", "PVC 0.1", "PVC 1", "PVC 10", "PVC 100")) +  
+  scale_fill_manual(values = c("seashell", "coral", "coral1","coral2","coral3", "coral4","dodgerblue","dodgerblue1","dodgerblue2", "dodgerblue3","dodgerblue4")) +
+  theme(
+plot.title = element_text(size = 20, face = "bold"), # Title text size
+axis.title.x = element_text(size = 16), # X-axis title text size
+axis.title.y = element_text(size = 16), # Y-axis title text size
+axis.text.x = element_text(size = 14), # X-axis text size
+axis.text.y = element_text(size = 14), # Y-axis text size
+legend.title = element_text(size = 16), # Legend title text size
+legend.text = element_text(size = 14) # Legend text size
+)
 
 ```
-
 
 ```{r}
 fvfm_aov <- aov(Fv_Fm ~ treatment,
@@ -247,3 +265,89 @@ summary(fvfm_aov)
 
 ```
 
+```{r}
+# Generate some fake data
+set.seed(123)
+low <- rnorm(50, mean = 10, sd = 2)
+medium <- rnorm(50, mean = 15, sd = 2)
+high <- rnorm(50, mean = 20, sd = 2)
+
+# Combine the data
+data <- data.frame(
+  Respiration_Rate = c(low, medium, high),
+  Leachate_Concentration = rep(c("Low", "Medium", "High"), each = 50)
+)
+
+data$Leachate_Concentration <- factor(data$Leachate_Concentration, levels = c("Low", "Medium", "High"))
+
+# Create boxplot
+boxplot(Respiration_Rate ~ Leachate_Concentration, data = data, 
+        xlab = "Leachate Concentration", ylab = "Respiration Rate", 
+        col = c("lightblue", "purple", "lightcoral"),
+        main = "Respiration hypothesis")
+
+```
+
+# Hypothesis plots 
+
+```{r}
+# Load ggplot2 library
+library(ggplot2)
+
+# Generate some fake data
+set.seed(123)
+high <- rnorm(50, mean = 10, sd = 2)
+medium <- rnorm(50, mean = 15, sd = 2)
+low <- rnorm(50, mean = 20, sd = 2)
+
+# Combine the data
+data <- data.frame(
+  Respiration_Rate = c(low, medium, high),
+  Leachate_Concentration = rep(c("Low", "Medium", "High"), each = 50)
+)
+
+# Reverse the order of levels for Leachate_Concentration
+data$Leachate_Concentration <- factor(data$Leachate_Concentration, levels = c("Low", "Medium", "High"))
+
+# Create ggplot
+ggplot(data, aes(x = Leachate_Concentration, y = Respiration_Rate, fill = Leachate_Concentration)) +
+  geom_boxplot() +
+  labs(x = "Leachate Concentration", y = "Photosynthetic Rate",
+       title = "Photosynthetic Effeciency vs. Leachate Concentration") +
+  scale_fill_brewer(palette = "Set2", breaks = rev(levels(data$Leachate_Concentration)),
+                    labels = c("High" = "High", "Medium" = "Medium", "Low" = "Low")) +
+  theme_minimal()
+
+
+```
+
+```{r}
+#Load ggplot2 library
+library(ggplot2)
+
+# Generate some fake data
+set.seed(123)
+low <- rnorm(50, mean = 10, sd = 2)
+medium <- rnorm(50, mean = 15, sd = 2)
+high <- rnorm(50, mean = 20, sd = 2)
+
+# Combine the data
+data <- data.frame(
+  Respiration_Rate = c(low, medium, high),
+  Leachate_Concentration = rep(c("Low", "Medium", "High"), each = 50)
+)
+
+data$Leachate_Concentration <- factor(data$Leachate_Concentration, levels = c("Low", "Medium", "High"))
+
+
+# Create ggplot
+ggplot(data, aes(x = Leachate_Concentration, y = Respiration_Rate, fill = Leachate_Concentration)) +
+  geom_boxplot() +
+  labs(x = "Leachate Concentration", y = "Respiration Rate",
+       title = "Respiration Rate vs. Leachate Concentration") +
+  scale_fill_brewer(palette = "Set2", breaks = rev(levels(data$Leachate_Concentration)),
+                    labels = c("Low" = "Low", "Medium" = "Medium", "High" = "High")) +
+  theme_minimal()
+
+
+```

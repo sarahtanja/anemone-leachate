@@ -1,0 +1,399 @@
+---
+title: "Respirometry analysis: Part 1"
+subtitle: "Pull in data and format it for use in the `respR` package"
+author: "Sarah Tanja"
+date: "`r format(Sys.time(), '%d %B, %Y')`"  
+format:
+  html:
+    df-print: paged
+    toc: true
+    toc-location: right
+    smooth-scroll: true
+    link-external-icon: true
+    link-external-newwindow: true
+    code-fold: false
+    code-tools: true
+    code-copy: true
+    highlight-style: breeze
+    code-overflow: wrap
+    theme: minty
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+# Install and load packages
+
+```{r}
+# Install packages
+if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages('tidyverse')
+if ("dplyr" %in% rownames(installed.packages()) == 'FALSE') install.packages('dplyr')
+if ("lubridate" %in% rownames(installed.packages()) == 'FALSE') install.packages('lubridate')
+if ("stringr" %in% rownames(installed.packages()) == 'FALSE') install.packages('stringr')
+
+# Load packages
+library(dplyr)
+library(tidyverse)
+library(lubridate)
+library(stringr)
+```
+
+# Pull in metadata
+
+```{r}
+nem_metadata <- read_csv("../metadata/nem_metadata.csv")
+```
+
+# Pull in data
+
+```{r}
+rlc <- read_csv("data/ALL55_anemones_RLSs_26APR2024.csv")
+```
+
+# Filter data
+
+```{r}
+# Join metadata with data by matching "No." to "RLC_start"
+rlc_mer <- left_join(rlc, nem_metadata, by = c("No." = "RLC_start")) 
+
+# Bring the "RLC_start" column back in by re-joining to the metadata
+rlc_merged <- left_join(rlc_mer, nem_metadata) 
+
+rlc_merged <- rlc_merged %>% relocate (RLC_start, .before = RLC_end)
+```
+
+# Fill data
+
+```{r}
+
+rlc_fill <- rlc_merged %>% 
+  filter(Type %in% c("REG2", "FO")) %>% 
+  fill(treatment, .direction = "up") %>% 
+  fill(id, .direction = "up") %>% 
+  fill(No., .direction = "up")%>% 
+  fill("1:Fv/Fm", .direction = "up") %>% 
+  filter(No. == lead(RLC_start)) %>% 
+  select(No., "1:F","1:Fv/Fm", id, treatment )
+
+rlc_fill
+```
+
+## Check that there are 55 rows, with 11 treatments that each have 5 replicates of each
+
+```{r}
+# Get unique treatments and count occurrences of each
+table(rlc_fill$treatment) # there should be 5 of each
+table(rlc_fill$id) # there should be 1 of each
+```
+
+## Extract alpha, ETRm, & Ik values
+
+```{r}
+# Define a regex pattern to extract alpha, ETRm, and Ik values
+regex <- "alpha: ([\\d.-]+), ETRm: ([\\d.-]+), Ik: ([\\d.-]+)"
+
+# Extract the rows that match the pattern
+photobot_results <- rlc_fill %>%
+  mutate(match = str_extract(`1:F`, regex)) %>%
+  filter(!is.na(match)) %>%
+  mutate(alpha = str_extract(match, "(?<=alpha: )[\\d.-]+"),
+         ETRm = str_extract(match, "(?<=ETRm: )[\\d.-]+"),
+         Ik = str_extract(match, "(?<=Ik: )[\\d.-]+")) %>%
+  select(id, treatment, "1:Fv/Fm", alpha, ETRm, Ik)
+
+# rename FvFm & make numeric
+photobot_results <- photobot_results %>% 
+  rename(FvFm = "1:Fv/Fm") 
+
+photobot_results <- photobot_results %>% 
+  mutate(alpha = as.numeric(alpha)) %>% 
+  mutate(ETRm = as.numeric(ETRm)) %>% 
+  mutate(Ik = as.numeric(Ik))
+
+print(photobot_results)
+
+```
+
+# Make treatment a factor
+
+```{r}
+photobot_results <- photobot_results %>% 
+  mutate(treatment = as.factor(treatment))
+
+class(photobot_results$treatment)
+```
+
+# Fv/Fm
+
+```{r}
+fvfm_aov <- aov(FvFm ~ treatment,
+  data = photobot_results
+)
+
+summary(fvfm_aov)
+```
+
+```{r}
+
+FvFm <- ggplot(photobot_results) +
+  aes(x = treatment, y = FvFm, fill= treatment) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+   labs(
+    title = "Concentration vs. Photosynthetic efficiency (Fv/Fm)",
+    x = "Leachate concentration (mg/L)",
+    y = "Photosynthetic efficiency (Fv/Fm)"
+  ) +
+  scale_x_discrete(labels = c("Control ", "PPa 0.01", "PPa 0.1","PPa 1", "PPa 10", "PPa 100","PVC 0.01", "PVC 0.1", "PVC 1", "PVC 10", "PVC 100")) +  
+  scale_fill_manual(values = c("seashell", "coral", "coral1","coral2","coral3", "coral4","dodgerblue","dodgerblue1","dodgerblue2", "dodgerblue3","dodgerblue4")) 
+
+FvFm
+
+# Save the ggplot object to a PNG file
+ggsave(filename = "FvFm.png", plot = FvFm, width = 11, height = 6, dpi = 600)
+
+```
+
+# Alpha
+
+## plot
+
+```{r}
+Alpha <- ggplot(photobot_results) +
+  aes(x = treatment, y = alpha, fill= treatment) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+   labs(
+    title = "Concentration vs. Alpha",
+    x = "Leachate concentration (mg/L)",
+    y = "Alpha"
+  ) +
+  scale_x_discrete(labels = c("Control ", "PPa 0.01", "PPa 0.1","PPa 1", "PPa 10", "PPa 100","PVC 0.01", "PVC 0.1", "PVC 1", "PVC 10", "PVC 100")) +  
+  scale_fill_manual(values = c("seashell", "coral", "coral1","coral2","coral3", "coral4","dodgerblue","dodgerblue1","dodgerblue2", "dodgerblue3","dodgerblue4")) 
+
+Alpha
+
+# Save the ggplot object to a PNG file
+ggsave(filename = "Alpha.png", plot = Alpha, width = 11, height = 6, dpi = 300)
+```
+
+## anova
+
+```{r}
+alpha_aov <- aov(alpha ~ treatment,
+  data = photobot_results
+)
+
+summary(alpha_aov)
+```
+
+## PVC only
+
+Filter the dataframe for just the PVC and control treatments
+
+```{r}
+photobot_pvc <- photobot_results %>% 
+  filter(treatment %in% c('Control', 'PVC_0.01_mgL', 'PVC_0.1_mgL', 'PVC_1_mgL', 'PVC_10_mgL', 'PVC_100_mgL'))
+
+photobot_pvc
+```
+
+### plot
+
+```{r}
+PVCAlpha <- ggplot(photobot_pvc) +
+  aes(x = treatment, y = alpha, fill= treatment) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+   labs(
+    title = "Concentration vs. Alpha",
+    x = "Leachate concentration (mg/L)",
+    y = "Alpha"
+  ) +
+  scale_x_discrete(labels = c("Control ", "PVC 0.01", "PVC 0.1", "PVC 1", "PVC 10", "PVC 100")) +  
+  scale_fill_manual(values = c("seashell", "dodgerblue","dodgerblue1","dodgerblue2", "dodgerblue3","dodgerblue4")) 
+
+PVCAlpha
+
+# Save the ggplot object to a PNG file
+ggsave(filename = "PVCAlpha.png", plot = PVCAlpha, width = 11, height = 6, dpi = 300)
+
+```
+
+Alpha (α) Definition: Alpha (α) is defined as the initial slope of the
+Rapid Light Curve at low light intensities. It represents the
+photosynthetic efficiency, indicating how effectively a photosynthetic
+organism can use available light for photosynthesis under low light
+conditions. A higher alpha value indicates that the photosynthetic
+organism is highly efficient at utilizing low light levels, which can be
+crucial for survival in shaded or low-light environments. Conversely, a
+lower alpha suggests less efficiency in low light conditions. The alpha
+value is calculated from the initial linear portion of the Rapid Light
+Curve. It is determined by fitting a straight line to the data points at
+the lowest light intensities and calculating the slope of this line. The
+steeper the slope, the higher the photosynthetic efficiency at low
+light.
+
+### anova
+
+```{r}
+alpha_pvc_aov <- aov(alpha ~ treatment,
+  data = photobot_pvc
+)
+
+summary(alpha_pvc_aov)
+```
+
+### Dunnett's test
+
+Is the lowest PVC leachate concentration actually larger than the
+control? Or is this a `Type II error`, or error of multiple tests? I
+followed the [stats and r blog to conduct a post-hoc Dunnett's
+test](https://statsandr.com/blog/anova-in-r/#post-hoc-test:~:text=plot(TukeyHSD(res_aov))-,Dunnett%E2%80%99s%20test,-We%20have%20seen)
+on the above ANOVA result.
+
+```{r}
+if ("multcomp" %in% rownames(installed.packages()) == 'FALSE') install.packages('multcomp')
+library(multcomp)
+
+# Make sure `treatment` is a factor
+
+
+# Dunnett's test:
+post_test <- glht(alpha_pvc_aov,
+  linfct = mcp(treatment = "Dunnett")
+)
+
+summary(post_test)
+```
+
+::: callout-warning
+The Dunnett's test adjusted *p* value comparing the lowest PVC
+concentration to the control (*p* = .0671) indicated that the treatment
+is not significantly different from the control.
+:::
+
+::: callout-note
+Note that in R, by default, the reference category for a [factor
+variable](https://statsandr.com/blog/data-types-in-r/#factor) is the
+first category in alphabetical order. This is the reason that, by
+default, the reference species is `Control`.
+
+The reference category can be changed with the `relevel()` function (or
+with the [`{questionr}`
+addin](https://statsandr.com/blog/rstudio-addins-or-how-to-make-your-coding-life-easier/#reordering-factors)).
+Look
+[here](https://statsandr.com/blog/anova-in-r/#post-hoc-test:~:text=%23%20Change%20reference%20category%3A)
+for an example.
+:::
+
+Examining the 95% family-wise confidence level comparing the treatments
+to the controls:
+
+```{r}
+
+# Open the PNG device
+png(filename = "Dunnett.png", width = 800, height = 600, res = 72)
+
+### use sufficiently large upper margin
+old.par <- par(mai=c(1,2.25,1.25,0.25), no.readonly=TRUE)
+### plot
+plot(post_test)
+par(old.par)
+
+# Close the device
+dev.off()
+
+```
+
+```{r}
+### use sufficiently large upper margin
+old.par <- par(mai=c(1,2.25,1.25,0.25))
+### plot
+plot(post_test)
+par(old.par)
+```
+
+## PP only?
+
+```{r}
+photobot_pp <- photobot_results %>% 
+  filter(treatment %in% c('Control', 'PP_A_0.01_mgL', 'PP_A_0.1_mgL', 'PP_A_1_mgL', 'PP_A_10_mgL', 'PP_A_100_mgL'))
+
+photobot_pp
+```
+
+```{r}
+alpha_pp_aov <- aov(alpha ~ treatment,
+  data = photobot_pp
+)
+
+summary(alpha_pp_aov)
+```
+
+```{r}
+ggplot(photobot_pp) +
+  aes(x = treatment, y = alpha, fill= treatment) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+   labs(
+    title = "Concentration vs. Alpha",
+    x = "Leachate concentration (mg/L)",
+    y = "Alpha"
+  ) +
+  scale_x_discrete(labels = c("Control ", "PPa 0.01", "PPa 0.1","PPa 1", "PPa 10", "PPa 100")) +  
+  scale_fill_manual(values = c("seashell", "coral", "coral1","coral2","coral3", "coral4"))
+```
+
+# ETRm
+
+```{r}
+etrm_aov <- aov(ETRm ~ treatment,
+  data = photobot_results
+)
+
+summary(etrm_aov)
+```
+
+```{r}
+ggplot(photobot_results) +
+  aes(x = treatment, y = ETRm, fill= treatment) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+   labs(
+    title = "Concentration vs. rETRm",
+    x = "Leachate concentration (mg/L)",
+    y = "rETRm"
+  ) +
+  scale_x_discrete(labels = c("Control ", "PPa 0.01", "PPa 0.1","PPa 1", "PPa 10", "PPa 100","PVC 0.01", "PVC 0.1", "PVC 1", "PVC 10", "PVC 100")) +  
+  scale_fill_manual(values = c("seashell", "coral", "coral1","coral2","coral3", "coral4","dodgerblue","dodgerblue1","dodgerblue2", "dodgerblue3","dodgerblue4"))
+```
+
+# Ik
+
+```{r}
+ik_aov <- aov(Ik ~ treatment,
+  data = photobot_results
+)
+
+summary(ik_aov)
+```
+
+```{r}
+Ik <- ggplot(photobot_results) +
+  aes(x = treatment, y = Ik, fill= treatment) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+   labs(
+    title = "Leachate concentration vs. Saturating Irradiance (Ik)",
+    x = "Leachate concentration (mg/L)",
+    y = "Saturating Irradiance (PAR umol/m2/s)"
+  ) +
+  scale_x_discrete(labels = c("Control ", "PPa 0.01", "PPa 0.1","PPa 1", "PPa 10", "PPa 100","PVC 0.01", "PVC 0.1", "PVC 1", "PVC 10", "PVC 100")) +  
+  scale_fill_manual(values = c("seashell", "coral", "coral1","coral2","coral3", "coral4","dodgerblue","dodgerblue1","dodgerblue2", "dodgerblue3","dodgerblue4"))
+
+Ik
+
+```
+
+What the hell is wrong with the control!?
