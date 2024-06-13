@@ -20,6 +20,7 @@ format:
 editor: 
   markdown: 
     wrap: 72
+bibliography: references.bib
 ---
 
 # Install and load packages
@@ -58,6 +59,39 @@ for (file in csv_files) {
 
 # Now you'll have dataframes named after the CSV files
 # For example, if you have a file named "example.csv", you'll have a dataframe named "example"
+```
+
+# Convert wet_weight to mg_protein
+
+First we define a function that represents the equation published in
+@dimond2011 in Table 1. relating the wet weight of *Anthopleura
+elegantissima* to the milligrams of protein content in the whole
+homogenized anemone. @dimond2011 found that wet weight was a better
+indicator of milligrams of protein than oral disc diameter
+($r^{2} = 0.80$). Wet weight was measured after separating each anemone
+from their petri dish, and blotting them with a towel for 5 seconds,
+being careful to 'gently press' any retained water from their
+coelenteron.
+
+```{r}
+wet_to_protein <- function(x) {
+  67.31 * exp(0.3143 * x)
+}
+```
+
+```{r}
+merged_metadata <- merged_metadata %>% 
+  mutate(mg_protein = wet_to_protein(wet_weight_g))
+```
+
+Next, we call the function on the wet_weight column and make a new
+column, `mg_protein`
+
+# Merge metadata with resp & phot dataframes
+
+```{r}
+resp_rates <- merge(resp_rates, merged_metadata)
+phot_rates <-  merge(phot_rates, merged_metadata)
 ```
 
 # Respiration
@@ -162,7 +196,7 @@ The respirometer effective volume: 317mL = 0.317L
 ```{r}
 resp_rates <- resp_rates %>%
   mutate(
-    resp_rate_adj_run_norm =
+    resp_rate_adj_run_norm_wetweight =
       convert_rate(
       resp_rate_bg_adj_run,
       oxy.unit = 'mg/l',
@@ -172,10 +206,30 @@ resp_rates <- resp_rates %>%
       mass = wet_weight_g
     )$rate.output 
   ) %>% 
-  relocate(resp_rate_adj_run_norm, .after = resp_rate_bg_adj_run) 
+  relocate(resp_rate_adj_run_norm_wetweight, .after = resp_rate_bg_adj_run) 
 
 print(resp_rates)
 
+```
+
+## Normalize by mg_protein
+
+```{r}
+resp_rates <- resp_rates %>%
+  mutate(
+    resp_rate_adj_run_norm_protein =
+      convert_rate(
+      resp_rate_bg_adj_run,
+      oxy.unit = 'mg/l',
+      time.unit = 'm',
+      output.unit = 'mg/min/mg',
+      volume = 0.317,
+      mass = mg_protein
+    )$rate.output 
+  ) %>% 
+  relocate(resp_rate_adj_run_norm_protein, .after = resp_rate_bg_adj_run) 
+
+print(resp_rates)
 ```
 
 ## Filter out blank
@@ -183,20 +237,33 @@ print(resp_rates)
 ```{r}
 resp_rates <- resp_rates %>% filter(id != "blank")
 resp_rates
-hist(resp_rates$resp_rate_adj_run_norm)
+hist(resp_rates$resp_rate_adj_run_norm_wetweight)
+hist(resp_rates$resp_rate_adj_run_norm_protein)
 ```
 
 ```{r}
 ggplot(resp_rates) +
-  aes(x = treatment, y = resp_rate_adj_run_norm, fill= treatment) +
+  aes(x = treatment, y = resp_rate_adj_run_norm_wetweight, fill= treatment) +
   geom_boxplot() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
    labs(
     title = "Concentration vs. Respiration",
     x = "Leachate concentration (mg/L)",
-    y = "Respiration (mg/min/g)"
+    y = "Respiration (mg/min/g wet weight)"
   )
 
+```
+
+```{r}
+ggplot(resp_rates) +
+  aes(x = treatment, y = resp_rate_adj_run_norm_protein, fill= treatment) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+   labs(
+    title = "Concentration vs. Respiration",
+    x = "Leachate concentration (mg/L)",
+    y = "Respiration (mg/min/mg protein)"
+  )
 ```
 
 # Photosynthesis
@@ -273,7 +340,7 @@ out' by the background or 'blank'.
 ```{r}
 phot_rates <- phot_rates %>%
   mutate(
-    phot_rate_adj_run_norm = as.numeric(
+    phot_rate_adj_run_norm_wetweight = as.numeric(
       convert_rate(
       phot_rate_bg_adj_run,
       oxy.unit = 'mg/l',
@@ -283,7 +350,27 @@ phot_rates <- phot_rates %>%
       mass = wet_weight_g
     )$rate.output 
   )) %>% 
-  relocate(phot_rate_adj_run_norm, .after = phot_rate_bg_adj_run) 
+  relocate(phot_rate_adj_run_norm_wetweight, .after = phot_rate_bg_adj_run) 
+
+print(phot_rates)
+```
+
+## Normalize by mg_protein
+
+```{r}
+phot_rates <- phot_rates %>%
+  mutate(
+    phot_rate_adj_run_norm_protein = as.numeric(
+      convert_rate(
+      phot_rate_bg_adj_run,
+      oxy.unit = 'mg/l',
+      time.unit = 'm',
+      output.unit = 'mg/min/mg',
+      volume = 0.317,
+      mass = mg_protein
+    )$rate.output 
+  )) %>% 
+  relocate(phot_rate_adj_run_norm_protein, .after = phot_rate_bg_adj_run) 
 
 print(phot_rates)
 ```
@@ -293,28 +380,46 @@ print(phot_rates)
 ```{r}
 phot_rates <- phot_rates %>% filter(id != "blank")
 phot_rates
-hist(phot_rates$phot_rate_adj_run_norm)
+hist(phot_rates$phot_rate_adj_run_norm_wetweight)
+hist(phot_rates$phot_rate_adj_run_norm_protein)
 ```
 
 ## Calculate gross photosynthesis
 
 ```{r}
-phot_rates <- phot_rates %>% mutate(gross_photosynthesis = phot_rate_adj_run_norm - resp_rates$resp_rate_adj_run_norm)
+phot_rates <- phot_rates %>% mutate(gross_photosynthesis_protein = phot_rate_adj_run_norm_protein - resp_rates$resp_rate_adj_run_norm_protein)
 ```
 
 ```{r}
-hist(phot_rates$gross_photosynthesis)
+phot_rates <- phot_rates %>% mutate(gross_photosynthesis_wetweight = phot_rate_adj_run_norm_wetweight - resp_rates$resp_rate_adj_run_norm_wetweight)
+```
+
+```{r}
+hist(phot_rates$gross_photosynthesis_protein)
+hist(phot_rates$gross_photosynthesis_wetweight)
 ```
 
 ```{r}
 ggplot(phot_rates) +
-  aes(x = treatment, y = gross_photosynthesis, fill= treatment) +
+  aes(x = treatment, y = gross_photosynthesis_wetweight, fill= treatment) +
   geom_boxplot() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
    labs(
-    title = "Concentration vs. Gross Photosynthesis",
+    title = "Concentration vs. Gross Photosynthesis normalized by wet weight",
     x = "Leachate concentration (mg/L)",
-    y = "Gross Photosynthesis"
+    y = "Gross Photosynthesis (mg/L/g anemone wet weight)"
+  )
+```
+
+```{r}
+ggplot(phot_rates) +
+  aes(x = treatment, y = gross_photosynthesis_protein, fill= treatment) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+   labs(
+    title = "Concentration vs. Gross Photosynthesis normalized by anemone protein content",
+    x = "Leachate concentration (mg/L)",
+    y = "Gross Photosynthesis (mg/L/g anemone protein content)"
   )
 ```
 
@@ -332,13 +437,13 @@ Join the respiration rates and photosynthesis rates dataframes
 
 ```{r}
 rates <- left_join(resp_rates, phot_rates) %>% 
-    mutate(respiration = resp_rate_adj_run_norm,
+    mutate(respiration_wetweight = resp_rate_adj_run_norm_wetweight,
          net_photosynthesis = phot_rate_adj_run_norm) %>% 
   select(c('id',
            'treatment', 
            'run', 
            'channel',
-           'respiration',
+           'respiration_wetweight',
            'net_photosynthesis',
            'gross_photosynthesis')) %>% 
 
