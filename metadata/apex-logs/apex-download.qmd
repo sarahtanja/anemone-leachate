@@ -1,0 +1,44 @@
+--- 
+title: "R script to download data from the apex logs"
+---
+This code is designed to be run manually, and daily, for each day of acclimation and experimentation that you want Apex data for. The Apex overwrites all data after 24 hours (double check that... I thought it was longer)
+
+# Load packages
+```{r}
+library(here)
+library(tidyverse)
+library(XML)
+```
+
+# Get todays date
+```{r}
+todaysdate <- format(Sys.Date(), format = "%y%m%d")
+```
+
+# Parse todays date into the filename
+```{r}
+#Rack1url <- paste0('http://192.168.1.11/cgi-bin/datalog.xml?sdate=',todaysdate,'&days=3')
+#Rack5url <- paste0('http://192.168.1.15/cgi-bin/datalog.xml?sdate=',todaysdate,'&days=3')
+#Rack3url <- paste0('http://192.168.1.13/cgi-bin/datalog.xml?sdate=',todaysdate,'&days=3')
+#Rack4url <- paste0('http://192.168.1.14/cgi-bin/datalog.xml?sdate=',todaysdate,'&days=3'
+seatablesurl <- paste0('http://192.168.1.16/cgi-bin/datalog.xml?sdate=',todaysdate,'&days=3')
+```
+
+```{r}
+here()
+```
+
+# Download the files as xml
+
+You must be connected to the same network at the Apex system to 
+download the files.
+
+```{r}
+#download.file(Rack1url, destfile = here(paste0(('raw-apex-xml files/Rack 1/'),'Rack 1_',todaysdate,'.xml')))
+#download.file(Rack5url, destfile = here(paste0(('raw-apex-xml files/Rack 5/'),'Rack 5_',todaysdate,'.xml')))
+#download.file(Rack3url, destfile = here(paste0(('raw-apex-xml files/Rack 3/'),'Rack 3_',todaysdate,'.xml')))
+#download.file(Rack4url, destfile = here(paste0(('raw-apex-xml files/Rack 4/'),'Rack 4_',todaysdate,'.xml')))
+download.file(seatablesurl, destfile = here(paste0(('experimental-design/raw-apex-xml/'),'seatables',todaysdate,'.xml')))
+```
+
+
